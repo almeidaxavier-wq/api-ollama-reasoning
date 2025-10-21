@@ -11,7 +11,7 @@ client = Client(
 )
 
 def make_request_ollama_reasoning(model_name:str, prompt:str, context:str, n_tokens:int):
-    print("Making request")
+    print("Making request", context, model_name)
     result = client.chat(
         model=model_name,
         messages = [
@@ -24,10 +24,14 @@ def make_request_ollama_reasoning(model_name:str, prompt:str, context:str, n_tok
                 "content":context,
             }
 
-        ],
-        num_predict=n_tokens,
+        ], options={
+            "temperature":0.2,
+            "num_predict": n_tokens,
+
+        },
         stream=False
 
     )
+    print(result['message'])
 
     return result["message"]["content"]

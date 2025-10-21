@@ -4,13 +4,15 @@ import os
 generate_prompt = lambda width: f"""
 1.Break the problem into {width} step alternatives to adress it
 2.Choose one alternative
-3.Always write math between $ $, or $$ $$ in widest cases. 
+3.Always write math between \( \), or \[ \] in widest cases.
+4. DO NOT USE CONJECTURES. Only use well known theorems, lemmas and mathematical concepts. 
+
+Do not write an answer yet, only propose the alternatives.
 """
 
 continue_prompt = lambda width: f"""
 Now, extensively create an mathematical aproximation using this alternative,
-proposing {width} new ones from the result of the approach. If there is any *ensured*
-conclusion to the problem, return SOLVED.
+proposing {width} new ones from the result of the approach.
 
 Also, don't use any conjecture, only theorems, lemmas and other mathematical concepts well known.
 """
@@ -33,11 +35,12 @@ class Reasoning:
         prompt += f"PROBLEM: {query}\n\n"
         prompt += generate_prompt(self.max_width) if init else continue_prompt(self.max_width)
 
-        result = make_request_ollama_reasoning(self.model, prompt, context, n_tokens=self.n_tokens_default)
+        print('PROMPT', prompt, context, self.model, self.n_tokens_default, log_dir)
+        result = make_request_ollama_reasoning(model_name=self.model, prompt=prompt, context=context, n_tokens=self.n_tokens_default)
         
         if "SOLVED" in result:
             log_path = os.path.join(log_dir, 'output.md')
-            os.makedir(log_dir) if not os.path.exists(log_path) else None
+            os.mkdir(log_dir) if not os.path.exists(log_dir) else None
 
             with open(log_path, 'a', encoding='utf-8') as output_file:
                 for s in seq:
@@ -46,9 +49,9 @@ class Reasoning:
             return seq
 
         log_path_steps = os.path.join(log_dir, "steps")
-        os.makedirs(log_path_steps) if os.path.exists(log_path_steps) else None
+        os.makedirs(log_path_steps) if not os.path.exists(log_path_steps) else None
 
-        with open(os.path.join(log_path_steps, 'log'+depth+'.md'), 'w', encoding='utf-8') as file:
+        with open(os.path.join(log_path_steps, 'log'+str(depth+1)+'.md'), 'w', encoding='utf-8') as file:
             file.write(result)
 
         return self.reasoning_step(query=query, context=context+"\n\n"+result, seq=seq+[result], init=False, depth=depth+1, log_dir=log_dir)

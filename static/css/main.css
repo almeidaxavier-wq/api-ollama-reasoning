@@ -1,11 +1,15 @@
 body {
     margin: 0;
-    display:flex;
-    box-sizing:border-box;
+    height:100%;
     font-family: 'Courier New', Courier, monospace;
-    text-align: justify;
-    align-items: center;
-    justify-content: center;
+}
+
+.content{
+    box-sizing:border-box;
+    padding:20px;
+    display:flex;
+    flex-direction:row;
+    gap:8px;
 
 }
 

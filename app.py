@@ -1,5 +1,6 @@
 from flask import Flask, render_template, redirect, url_for, request
 from forms.user import SubmitQueryForm
+from markupsafe import Markup
 from markdown import markdown
 from api.model.reasoning import Reasoning
 from dotenv import load_dotenv
@@ -13,15 +14,23 @@ requests = {} # Just for storing session data, not definitive (would use a datab
 
 
 def read_markdown_to_html(log_dir:str):
-    d_path = os.path.join("api", "model", log_dir)
+    d_path = os.path.join(os.getcwd(), log_dir)
+    print(d_path, os.path.exists(d_path))
     if os.path.exists(d_path):
         fp = os.path.join(d_path, "output.md")
         markdown_content = ""
         with open(fp, 'r') as f:
             markdown_content = f.read()
 
+        for file in os.listdir(os.path.join(d_path, "steps")):
+            step_path = os.path.join(d_path, "steps", file)
+            with open(step_path, 'r') as step_file:
+                step_content = step_file.read()
+                markdown_content += f"\n\n## Step {file}\n\n"
+                markdown_content += step_content
+
         html_code = markdown(markdown_content)
-        return html_code
+        return Markup(html_code)
 
     else: return False
 
@@ -34,38 +43,18 @@ def read(log_dir:str):
     result = read_markdown_to_html(log_dir)
     if result:
         return render_template('response.html', aditional_code=result)
-    
-    elif log_dir in requests.keys():
-        # Recupera os dados armazenados para este log_dir e executa a geração
-        req = requests.get(log_dir)
-        if req:
-            output = generate(
-                log_dir,
-                req.get('query'),
-                req.get('context'),
-                n_tokens=req.get('n_tokens'),
-                model_name=req.get('model_name')
-            )
 
-            # Se a função retornar uma sequência de passos, converte para HTML e exibe
-            if output:
-                try:
-                    md = "\n\n".join(output) if isinstance(output, (list, tuple)) else str(output)
-                    return render_template('response.html', aditional_code=markdown(md))
-                except Exception:
-                    return str(output)
-
-    return 'Wait while we are processing the data'
+    return "Log directory not found.", 404
 
 @app.route("/submit_question", methods=["GET", "POST"])
 def submit_question():
     form = SubmitQueryForm()
-    if request.method == 'POST' and form.validate_on_submit():
-        query = form.data.query
-        context = form.data.context
-        log_dir = form.data.log_dir or 'default_log'
-        n_tokens = form.data.n_tokens if form.data.n_tokens is not None else 100000 # Default value
-        model_name = form.data.model_name if form.data.model_name is not None else "deepseek-v3.1:671b-cloud"
+    if form.validate_on_submit():
+        query = form.query.data
+        context = form.context.data
+        log_dir = form.log_dir.data or 'default_log'
+        n_tokens = form.n_tokens.data if form.n_tokens.data is not None else 100000 # Default value
+        model_name = form.model_name.data if form.model_name.data else "deepseek-v3.1:671b-cloud"
 
         # Armazena a requisição e chama a geração imediatamente (síncrona)
         requests[log_dir] = {
@@ -74,27 +63,21 @@ def submit_question():
             'n_tokens': n_tokens,
             'model_name': model_name
         }
-
         output = generate(log_dir, query, context, n_tokens=n_tokens, model_name=model_name)
-
-        if output:
-            md = "\n\n".join(output) if isinstance(output, (list, tuple)) else str(output)
-            return render_template('response.html', aditional_code=markdown(md))
-
         return redirect(url_for('read', log_dir=log_dir))
-
     return render_template('form.html', form=form)
 
 def generate(log_dir:str, query:str, context:str, n_tokens:int, model_name:str):
     thinker = Reasoning(
-        max_width=3,
+        max_width=5,
         max_depth=20,
-        model_name=model_name,
+        model_name=model_name if model_name else "deepseek-v3.1:671b-cloud",
         n_tokens_default=n_tokens
 
     )
     # Retorna o resultado da cadeia de raciocínio para que possamos repassar à rota Flask
-    return thinker.reasoning_step(query, context, log_dir=log_dir)
+    print(query, context, log_dir)
+    return thinker.reasoning_step(query=query, context=context, log_dir=log_dir)
     
 
 if __name__ == '__main__':
