@@ -1,0 +1,17 @@
+{%extends 'base.html' %}
+{% block content %}
+<form action="">
+{% for field in form %}
+    {% if field.type == "SubmitField"%}
+        {{field}}
+    {% else %}
+        {{field.label}} {{field}}
+    {% endif%}
+{% endfor %}
+
+</form>
+{% endblock %}
+
+
+
+
