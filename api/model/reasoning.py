@@ -13,6 +13,7 @@ Do not write an answer yet, only propose the alternatives.
 continue_prompt = lambda width: f"""
 Now, extensively create an mathematical aproximation using this alternative,
 proposing {width} new ones from the result of the approach.
+Don't forget to use math between \( \) or \[ \]
 
 Also, don't use any conjecture, only theorems, lemmas and other mathematical concepts well known.
 """
@@ -24,10 +25,9 @@ class Reasoning:
         self.model = model_name 
         self.n_tokens_default = n_tokens_default
 
-    def reasoning_step(self, query:str, context:str, seq=None, init=True, depth=0, log_dir="log_dir_default") -> list:
-        print("Reasoning step at depth:", depth)
+    def reasoning_step(self, query:str, context:str, seq=None, init=True, depth=0, log_dir="log_dir_default"):
         if depth >= self.max_depth:
-            return
+            return seq
         
         seq = [] if seq is None else seq
         
@@ -37,7 +37,8 @@ class Reasoning:
 
         print('PROMPT', prompt, context, self.model, self.n_tokens_default, log_dir)
         result = make_request_ollama_reasoning(model_name=self.model, prompt=prompt, context=context, n_tokens=self.n_tokens_default)
-        
+        context += "\n\n" + prompt
+
         if "SOLVED" in result:
             log_path = os.path.join(log_dir, 'output.md')
             os.mkdir(log_dir) if not os.path.exists(log_dir) else None

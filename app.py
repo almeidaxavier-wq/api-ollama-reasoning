@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request
+from flask import Flask, render_template, redirect, url_for, request, flash
 from forms.user import SubmitQueryForm
 from markupsafe import Markup
 from markdown import markdown
@@ -19,8 +19,9 @@ def read_markdown_to_html(log_dir:str):
     if os.path.exists(d_path):
         fp = os.path.join(d_path, "output.md")
         markdown_content = ""
-        with open(fp, 'r') as f:
-            markdown_content = f.read()
+        if os.path.exists(fp):
+            with open(fp, 'r') as f:
+                markdown_content = f.read()
 
         for file in os.listdir(os.path.join(d_path, "steps")):
             step_path = os.path.join(d_path, "steps", file)
@@ -63,7 +64,9 @@ def submit_question():
             'n_tokens': n_tokens,
             'model_name': model_name
         }
-        output = generate(log_dir, query, context, n_tokens=n_tokens, model_name=model_name)
+        flash("Wait while we process your query")
+        generate(log_dir, query, context, n_tokens=n_tokens, model_name=model_name)
+
         return redirect(url_for('read', log_dir=log_dir))
     return render_template('form.html', form=form)
 
