@@ -1,39 +1,29 @@
-from flask import Flask, render_template, redirect, url_for, request, flash
+from flask import Flask, render_template, redirect, url_for, flash
 from forms.user import SubmitQueryForm
 from markupsafe import Markup
 from markdown import markdown
+from database import db, upload_file, Upload
 from api.model.reasoning import Reasoning
 from dotenv import load_dotenv
 import os
+import shutil
 
 load_dotenv()
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
-requests = {} # Just for storing session data, not definitive (would use a database instead)
+app.config['MONGODB_HOST'] = f"mongodb+srv://pvasx123:{os.getenv("DB_PASSWORD")}@clusterollamareasoning.scztjqo.mongodb.net/?retryWrites=true&w=majority&appName=ClusterOllamaReasoning"
 
+db.init_app(app)
 
 def read_markdown_to_html(log_dir:str):
-    d_path = os.path.join(os.getcwd(), log_dir)
-    print(d_path, os.path.exists(d_path))
-    if os.path.exists(d_path):
-        fp = os.path.join(d_path, "output.md")
-        markdown_content = ""
-        if os.path.exists(fp):
-            with open(fp, 'r') as f:
-                markdown_content = f.read()
+    objs = Upload.objects(filename__contains=log_dir)
+    markdown_content = ""
+    for f in objs:
+        markdown_content += '\n\n' + f.read()
 
-        for file in os.listdir(os.path.join(d_path, "steps")):
-            step_path = os.path.join(d_path, "steps", file)
-            with open(step_path, 'r') as step_file:
-                step_content = step_file.read()
-                markdown_content += f"\n\n## Step {file}\n\n"
-                markdown_content += step_content
-
-        html_code = markdown(markdown_content)
-        return Markup(html_code)
-
-    else: return False
+    html_code = markdown(markdown_content)
+    return Markup(html_code)
 
 @app.route("/")
 def index():
@@ -51,35 +41,45 @@ def read(log_dir:str):
 def submit_question():
     form = SubmitQueryForm()
     if form.validate_on_submit():
+        # Form validation and processing
+
         query = form.query.data
         context = form.context.data
-        log_dir = form.log_dir.data or 'default_log'
+        log_dir_temp = form.log_dir.data or 'default_log'
         n_tokens = form.n_tokens.data if form.n_tokens.data is not None else 100000 # Default value
         model_name = form.model_name.data if form.model_name.data else "deepseek-v3.1:671b-cloud"
 
-        # Armazena a requisição e chama a geração imediatamente (síncrona)
-        requests[log_dir] = {
-            'query': query,
-            'context': context,
-            'n_tokens': n_tokens,
-            'model_name': model_name
-        }
-        flash("Wait while we process your query")
-        generate(log_dir, query, context, n_tokens=n_tokens, model_name=model_name)
+        # Generates and stores the raw data on database
+        flash("Wait while we process your query", 'alert')
+        generate(log_dir_temp, query, context, n_tokens=n_tokens, model_name=model_name)
 
-        return redirect(url_for('read', log_dir=log_dir))
+        flash("Saving files on database", 'alert')
+        path_f = os.path.join(log_dir_temp, 'steps')
+        for file in os.listdir(path_f):
+            with open(os.path.join(path_f, file), 'rb') as f:
+                raw = f.read()
+                upload_file(raw_file=raw, temp_log_dir=log_dir_temp, filename=os.path.join(path_f, file))
+
+        with open(os.path.join(log_dir_temp, 'output.md'), 'rb') as f:
+            raw = f.read()
+            upload_file(raw_file=raw, temp_log_dir=log_dir_temp, filename=os.path.join(path_f, 'output.md'))
+
+        if os.path.exists(log_dir_temp):
+            shutil.rmtree(log_dir_temp)
+
+        return redirect(url_for('read', log_dir=log_dir_temp))
     return render_template('form.html', form=form)
 
 def generate(log_dir:str, query:str, context:str, n_tokens:int, model_name:str):
     thinker = Reasoning(
         max_width=5,
-        max_depth=20,
+        max_depth=15,
         model_name=model_name if model_name else "deepseek-v3.1:671b-cloud",
         n_tokens_default=n_tokens
 
     )
     # Retorna o resultado da cadeia de raciocínio para que possamos repassar à rota Flask
-    print(query, context, log_dir)
+    #print(query, context, log_dir)
     return thinker.reasoning_step(query=query, context=context, log_dir=log_dir)
     
 
