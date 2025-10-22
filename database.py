@@ -5,7 +5,7 @@ import os.path as path
 db = MongoEngine()
 
 class Upload(Document):
-    filename = StringField
+    filename = StringField()
     file = FileField()
     meta = {'collection': 'uploads'}
 

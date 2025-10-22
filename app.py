@@ -19,8 +19,8 @@ db.init_app(app)
 def read_markdown_to_html(log_dir:str):
     objs = Upload.objects(filename__contains=log_dir)
     markdown_content = ""
-    for f in objs:
-        markdown_content += '\n\n' + f.read()
+    for obj in objs:
+        markdown_content += '\n\n' + obj.file.read().decode('utf-8')
 
     html_code = markdown(markdown_content)
     return Markup(html_code)
@@ -37,6 +37,16 @@ def read(log_dir:str):
 
     return "Log directory not found.", 404
 
+@app.route("/load_log_dir/<log_dir>")
+def load(log_dir:str):
+    for file in os.listdir(os.path.join(log_dir, 'steps')):
+        with open(os.path.join(log_dir, 'steps', file), 'rb') as f:
+            raw = f.read()
+            upload_file(temp_log_dir=log_dir, filename=file, raw_file=raw)
+
+    return redirect(url_for('index'))
+
+
 @app.route("/submit_question", methods=["GET", "POST"])
 def submit_question():
     form = SubmitQueryForm()
@@ -50,24 +60,9 @@ def submit_question():
         model_name = form.model_name.data if form.model_name.data else "deepseek-v3.1:671b-cloud"
 
         # Generates and stores the raw data on database
-        flash("Wait while we process your query", 'alert')
         generate(log_dir_temp, query, context, n_tokens=n_tokens, model_name=model_name)
 
-        flash("Saving files on database", 'alert')
-        path_f = os.path.join(log_dir_temp, 'steps')
-        for file in os.listdir(path_f):
-            with open(os.path.join(path_f, file), 'rb') as f:
-                raw = f.read()
-                upload_file(raw_file=raw, temp_log_dir=log_dir_temp, filename=os.path.join(path_f, file))
-
-        with open(os.path.join(log_dir_temp, 'output.md'), 'rb') as f:
-            raw = f.read()
-            upload_file(raw_file=raw, temp_log_dir=log_dir_temp, filename=os.path.join(path_f, 'output.md'))
-
-        if os.path.exists(log_dir_temp):
-            shutil.rmtree(log_dir_temp)
-
-        return redirect(url_for('read', log_dir=log_dir_temp))
+        return redirect(url_for('load', log_dir=log_dir_temp))
     return render_template('form.html', form=form)
 
 def generate(log_dir:str, query:str, context:str, n_tokens:int, model_name:str):

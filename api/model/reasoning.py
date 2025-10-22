@@ -2,10 +2,9 @@ from api.model.api_main import make_request_ollama_reasoning
 import os
 
 generate_prompt = lambda width: f"""
-1.Break the problem into {width} step alternatives to adress it
-2.Choose one alternative
-3.Always write math between \( \), or \[ \] in widest cases.
-4. DO NOT USE CONJECTURES. Only use well known theorems, lemmas and mathematical concepts. 
+1. Break the problem into {width} step alternatives to adress it
+2. Choose one alternative
+3. DO NOT USE CONJECTURES. Only use well known theorems, lemmas and mathematical concepts. 
 
 Do not write an answer yet, only propose the alternatives.
 """
@@ -13,7 +12,6 @@ Do not write an answer yet, only propose the alternatives.
 continue_prompt = lambda width: f"""
 Now, extensively create an mathematical aproximation using this alternative,
 proposing {width} new ones from the result of the approach.
-Don't forget to use math between \( \) or \[ \]
 
 Also, don't use any conjecture, only theorems, lemmas and other mathematical concepts well known.
 """
