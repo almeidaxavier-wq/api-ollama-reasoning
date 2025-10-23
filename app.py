@@ -11,7 +11,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
-app.config['MONGODB_HOST'] = f"mongodb+srv://pvasx123:{os.getenv("DB_PASSWORD")}@clusterollamareasoning.scztjqo.mongodb.net/?retryWrites=true&w=majority&appName=ClusterOllamaReasoning"
+app.config['MONGODB_HOST'] = f"mongodb+srv:/pvasx123:{os.getenv('DB_PASSWORD')}@cluster.mongodb.net/ClusterOllamaReasoning?retryWrites=true&w=majority&tls=true&tlsAllowInvalidCertificates=false"
 
 db.init_app(app)
 
