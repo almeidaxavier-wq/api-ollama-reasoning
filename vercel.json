@@ -2,12 +2,8 @@
   "version": 2,
   "builds": [
     {
-      "src": "**/*.py",
+      "src": "main.py",
       "use": "@vercel/python"
-    },
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build"
     }
   ],
   "routes": [
@@ -19,5 +15,10 @@
       "src": "/(.*)",
       "dest": "/main.py"
     }
-  ]
+  ],
+  "build": {
+    "env": {
+      "PYTHONPATH": "/"
+    }
+  }
 }
