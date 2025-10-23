@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, flash
+from flask import Flask, render_template, redirect, url_for
 from forms.user import SubmitQueryForm
 from markupsafe import Markup
 from markdown import markdown
@@ -6,7 +6,6 @@ from database import db, upload_file, Upload
 from api.model.reasoning import Reasoning
 from dotenv import load_dotenv
 import os
-import shutil
 
 load_dotenv()
 
@@ -26,7 +25,7 @@ def read_markdown_to_html(log_dir:str):
     return Markup(html_code)
 
 @app.route("/")
-def index():
+def home():
     return render_template('index.html')
 
 @app.route("/<log_dir>")
