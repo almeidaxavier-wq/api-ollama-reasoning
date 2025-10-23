@@ -2,12 +2,12 @@
   "version": 2,
   "builds": [
     {
-      "src": "main.py",
+      "src": "**/*.py",
       "use": "@vercel/python"
     },
     {
-      "src": "static/**/*",
-      "use": "@vercel/static"
+      "src": "package.json",
+      "use": "@vercel/static-build"
     }
   ],
   "routes": [
