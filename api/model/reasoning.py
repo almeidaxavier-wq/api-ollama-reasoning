@@ -38,8 +38,8 @@ class Reasoning:
         context += "\n\n" + prompt
 
         if "SOLVED" in result:
-            log_path = os.path.join('tmp', log_dir, 'steps', 'output.md')
-            os.makedirs(os.path.join('tmp', log_dir, 'steps')) if not os.path.exists(log_path) else None
+            log_path = os.path.join('/tmp', log_dir, 'steps', 'output.md')
+            os.makedirs(os.path.join('/tmp', log_dir, 'steps')) if not os.path.exists(log_path) else None
 
             with open(log_path, 'a', encoding='utf-8') as output_file:
                 for s in seq:
@@ -47,7 +47,7 @@ class Reasoning:
 
             return seq
 
-        log_path_steps = os.path.join('tmp', log_dir, "steps")
+        log_path_steps = os.path.join('/tmp', log_dir, "steps")
         os.makedirs(log_path_steps) if not os.path.exists(log_path_steps) else None
 
         with open(os.path.join(log_path_steps, 'log'+str(depth+1)+'.md'), 'w', encoding='utf-8') as file:
