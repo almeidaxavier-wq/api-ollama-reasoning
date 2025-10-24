@@ -38,8 +38,8 @@ def read(log_dir:str):
 
 @app.route("/load_log_dir/<log_dir>")
 def load(log_dir:str):
-    for file in os.listdir(os.path.join(os.getcwd(), log_dir, 'steps')):
-        with open(os.path.join(os.getcwd(), log_dir, 'steps', file), 'rb') as f:
+    for file in os.listdir(os.path.join('logs', log_dir, 'steps')):
+        with open(os.path.join('logs', log_dir, 'steps', file), 'rb') as f:
             raw = f.read()
             upload_file(temp_log_dir=log_dir, filename=file, raw_file=raw)
 
