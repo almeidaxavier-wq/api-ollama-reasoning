@@ -25,6 +25,7 @@ def read_markdown_to_html(log_dir:str):
         markdown_content += '\n\n' + obj.file.read().decode('utf-8')
 
     html_code = markdown(markdown_content)
+    print(html_code)
     return Markup(html_code)
 
 @app.route("/")
@@ -45,10 +46,7 @@ def home():
 @app.route("/<log_dir>")
 def read(log_dir:str):
     result = read_markdown_to_html(log_dir)
-    if result:
-        return render_template('response.html', aditional_code=result)
-
-    return "Log directory not found.", 404
+    return render_template('response.html', aditional_code=result)
 
 @app.route("/load_log_dir/<log_dir>")
 def load(log_dir:str):
