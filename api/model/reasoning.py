@@ -47,6 +47,8 @@ class Reasoning:
             with open(os.path.join("/tmp", 'output.md'), 'rb') as file:
                 upload_file(log_dir, 'output.md', file)
 
+            return seq
+
         
         with open(os.path.join("/tmp", f'log{depth}.md'), 'wb') as file:
             file.write(result.encode('utf-8'))
