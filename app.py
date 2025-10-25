@@ -6,17 +6,17 @@ from markdown import markdown
 from database import db, upload_file, Upload
 from api.model.reasoning import Reasoning
 from dotenv import load_dotenv
-import threading
+from background_processing_api import bp_processing
 import os
+import requests
 
 load_dotenv()
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 app.config['MONGODB_HOST'] = os.getenv("MONGODB_URI")
+app.register_blueprint(bp_processing)
 
-# Simple set of threads
-threads = []
 db.init_app(app)
 
 def read_markdown_to_html(log_dir:str):
@@ -32,14 +32,6 @@ def read_markdown_to_html(log_dir:str):
 @app.route("/", methods=["GET", "POST"])
 def home():
     form = Search()
-    for thread in threads:
-        if not thread.is_alive():
-            try:
-                thread.start()
-
-            except:
-                thread.join()
-                threads.remove(thread)
 
     if form.validate_on_submit():
         query = form.query.data
@@ -54,8 +46,8 @@ def home():
             else:
                 files.add(filename[0])
 
-        return render_template('search.html', query=files)
 
+        return render_template('search.html', query=files)
     return render_template('index.html', form=form)
 
 @app.route("/<log_dir>")
@@ -74,7 +66,7 @@ def load(log_dir:str):
 
 
 @app.route("/submit_question", methods=["GET", "POST"])
-def submit_question():
+async def submit_question():
     form = SubmitQueryForm()
     if form.validate_on_submit():
         # Form validation and processing
@@ -86,23 +78,20 @@ def submit_question():
         model_name = form.model_name.data if form.model_name.data else "deepseek-v3.1:671b-cloud"
         max_depth = form.max_depth.data
 
+        requests.post('http://localhost:5000'+url_for('process.run_model'), json={
+            'query':query,
+            'context':context,
+            'log_dir':log_dir_temp,
+            'n_tokens': n_tokens,
+            'model_name': model_name,
+            'max_depth': max_depth
+
+        }, headers={'Content-Type': 'application/json'})
+
         # Generates and stores the raw data on database
-        threads.append(threading.Thread(target=generate, args=(log_dir_temp, query, context, n_tokens, model_name, max_depth)))
         return redirect(url_for('home'))
     
     return render_template('form.html', form=form)
-
-def generate(log_dir:str, query:str, context:str, n_tokens:int, model_name:str, max_depth:int):
-    thinker = Reasoning(
-        max_width=5,
-        max_depth=max_depth,
-        model_name=model_name if model_name else "deepseek-v3.1:671b-cloud",
-        n_tokens_default=n_tokens
-
-    )
-    # Retorna o resultado da cadeia de raciocínio para que possamos repassar à rota Flask
-    #print(query, context, log_dir)
-    return thinker.reasoning_step(query=query, context=context, log_dir=log_dir)
     
 
 if __name__ == '__main__':

@@ -61,5 +61,3 @@ class Reasoning:
             upload_file(log_dir, f'log{depth}.md', file)
 
         return self.reasoning_step(query=query, context=context+"\n\n"+result, seq=seq+[result], init=False, depth=depth+1, log_dir=log_dir)
-        
-        
