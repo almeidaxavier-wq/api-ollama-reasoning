@@ -1,5 +1,6 @@
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, render_template, redirect, url_for, request
 from forms.user import SubmitQueryForm
+from forms.search import Search
 from markupsafe import Markup
 from markdown import markdown
 from database import db, upload_file, Upload
@@ -28,10 +29,9 @@ def read_markdown_to_html(log_dir:str):
     print(html_code)
     return Markup(html_code)
 
-@app.route("/")
+@app.route("/", methods=["GET", "POST"])
 def home():
-    # Simple thread handling
-    print(threads)
+    form = Search()
     for thread in threads:
         if not thread.is_alive():
             try:
@@ -41,7 +41,22 @@ def home():
                 thread.join()
                 threads.remove(thread)
 
-    return render_template('index.html')
+    if form.validate_on_submit():
+        query = form.query.data
+        objs = Upload.objects(filename__contains=query)
+        files = set()
+        for obj in objs:
+            filename = obj.filename.split("\\")
+
+            if len(filename) == 1:
+                files.add(filename[0].split("/")[0])
+
+            else:
+                files.add(filename[0])
+
+        return render_template('search.html', query=files)
+
+    return render_template('index.html', form=form)
 
 @app.route("/<log_dir>")
 def read(log_dir:str):

@@ -8,7 +8,10 @@ generate_prompt = lambda width: f"""
 3. DO NOT USE CONJECTURES. Only use well known theorems, lemmas and mathematical concepts. 
 
 Do not write an answer yet, only propose the alternatives.
-ALWAYS write math between \(\)s or \[\]s
+ALWAYS write math between $s or $$s, example:
+
+$$2x - 1 = 3$$ for display
+$2x-3 = 1$ for inline
 """
 
 continue_prompt = lambda width: f"""
@@ -16,7 +19,8 @@ Now, extensively create an mathematical aproximation using this alternative,
 proposing {width} new ones from the result of the approach.
 
 Also, don't use any conjecture, only theorems, lemmas and other mathematical concepts well known.
-return SOLVED at the and of the reponse, if there is found a solution
+!! IF NO CONCLUSION IS FOUND AFTER THAT, JUST KEEP GOING !!
+return SOLVED at end of the reponse ONLY in a certain conclusion, if there is found a solution.
 """
 
 class Reasoning:
