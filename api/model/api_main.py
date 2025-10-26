@@ -8,7 +8,7 @@ def make_request_ollama_reasoning(api_key:str, model_name:str, prompt:str, conte
 
     )
 
-    print("Making request", context, model_name)
+    #print("Making request", context, model_name)
     result = client.chat(
         model=model_name,
         messages = [

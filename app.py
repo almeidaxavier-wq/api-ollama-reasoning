@@ -26,7 +26,7 @@ def read_markdown_to_html(log_dir:str):
         markdown_content += '\n\n' + obj.file.read().decode('utf-8')
 
     html_code = markdown(markdown_content)
-    print(html_code)
+    #print(html_code)
     return Markup(html_code)
 
 @app.route("/", methods=["GET", "POST"])
@@ -70,14 +70,6 @@ async def submit_question():
     form = SubmitQueryForm()
     if form.validate_on_submit() and request.method == 'POST':
         # Form validation and processing
-
-        query = form.query.data
-        context = form.context.data
-        api_key = form.api_key.data
-        log_dir_temp = form.log_dir.data or 'default_log'
-        n_tokens = form.n_tokens.data if form.n_tokens.data is not None else 100000 # Default value
-        model_name = form.model_name.data if form.model_name.data else "deepseek-v3.1:671b-cloud"
-        max_depth = form.max_depth.data
 
         session['json'] = {
             'query': form.query.data,
