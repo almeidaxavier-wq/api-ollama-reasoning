@@ -5,7 +5,8 @@ from markupsafe import Markup
 from markdown import markdown
 from database import db, upload_file, Upload
 from dotenv import load_dotenv
-from background_processing_api import bp_processing
+from background_processing_api import bp_processing, handle_threads
+from threading import Thread
 import os
 
 load_dotenv()
@@ -15,6 +16,7 @@ app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 app.config['MONGODB_HOST'] = os.getenv("MONGODB_URI")
 app.register_blueprint(bp_processing)
 
+threads = []
 db.init_app(app)
 
 def read_markdown_to_html(log_dir:str):
@@ -77,24 +79,22 @@ async def submit_question():
         model_name = form.model_name.data if form.model_name.data else "deepseek-v3.1:671b-cloud"
         max_depth = form.max_depth.data
 
-        json_code = {
-            'api_key': api_key,
-            'query':query,
-            'context':context,
-            'log_dir_temp':log_dir_temp,
-            'n_tokens':n_tokens,
-            'model_name':model_name,
-            'max_depth':max_depth,
-            'log_dir':log_dir_temp
-
+        session['json'] = {
+            'query': form.query.data,
+            'context': form.context.data,
+            'api_key': form.api_key.data,
+            'log_dir_temp' : form.log_dir.data or 'default_log',
+            'n_tokens' : form.n_tokens.data if form.n_tokens.data is not None else 100000,  # Default value
+            'model_name' : form.model_name.data if form.model_name.data else "deepseek-v3.1:671b-cloud",
+            'max_depth' : form.max_depth.data
         }
 
-        session['json'] = json_code
         return redirect(url_for('process.run_model'))
 
     return render_template('form.html', form=form)
     
 
 if __name__ == '__main__':
+    t = Thread(target=handle_threads)
+    t.start()
     app.run(debug=True)
-    

@@ -1,23 +1,29 @@
 # Flask Restful API
 from flask.blueprints import Blueprint
-from flask import session, jsonify, request, url_for, redirect
-import asyncio
+from flask import session, jsonify, url_for, redirect
 
 # Essential imports
 from api.model.reasoning import Reasoning
+from threading import Thread, Lock
 
-
-loop = None
-
-try:
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-except Exception as err:
-    print(err)
-    loop = asyncio.get_event_loop()
 
 bp_processing = Blueprint(name='process', import_name=__name__, static_folder='static', template_folder='templates')
+threads = []
+lock = Lock()
+
+def handle_threads():
+    while True:
+        for thread in threads:
+            try:
+                with lock:
+                    thread.start()
+
+            except Exception as err:
+                if not thread.is_alive() and thread in threads:
+                    print('Already finishied =>', err)
+                    thread.join()
+                    threads.remove(thread)
+
 @bp_processing.route('/run_model', methods=['GET', 'POST'])
 def run_model():
     json_code = session.get('json', None)
@@ -32,27 +38,15 @@ def run_model():
         log_dir = json_code.get('log_dir', 'log_dir_default')
 
         model_name = json_code.get('model_name', 'deepseek-v3.1:671b-cloud')
-        return redirect(url_for(
-            'process.threads',
-            api_key=api_key,
-            query=query,
-            context=context,
-            n_tokens=n_tokens,
-            model_name=model_name,
-            max_depth=max_depth,
-            log_dir=log_dir
-        ))
+        t = Thread(target=generate ,args=(api_key, log_dir, query, context, n_tokens, model_name, max_depth), daemon=True)
+        threads.append(t)
+
+        with lock:
+            t.start()
+
+        return redirect(url_for('home'))
 
     return jsonify({"message": "Send"}), 200
-
-@bp_processing.route('/run?api_key=<api_key>&query=<query>&context=<context>&n_tokens=<int:n_tokens>&model_name=<model_name>&max_depth=<int:max_depth>&log_dir=<log_dir>', methods=['GET','POST'])
-async def threads(api_key, query, context, n_tokens, model_name, max_depth, log_dir):
-    await run_threads(api_key, query, context, n_tokens, model_name, max_depth, log_dir)
-    return redirect(url_for('home'))
-
-async def run_threads(api_key, query, context, n_tokens, model_name, max_depth, log_dir):
-    result = await asyncio.to_thread(generate, api_key, log_dir, query, context, n_tokens, model_name, max_depth)
-    return result
 
 def generate(api_key:str, log_dir:str, query:str, context:str, n_tokens:int, model_name:str, max_depth:int):
     thinker = Reasoning(
