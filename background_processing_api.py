@@ -46,14 +46,13 @@ def run_model():
     return jsonify({"message": "Send"}), 200
 
 @bp_processing.route('/run?api_key=<api_key>&query=<query>&context=<context>&n_tokens=<int:n_tokens>&model_name=<model_name>&max_depth=<int:max_depth>&log_dir=<log_dir>', methods=['GET','POST'])
-def threads(api_key, query, context, n_tokens, model_name, max_depth, log_dir):
-    asyncio.run(run_threads(api_key, query, context, n_tokens, model_name, max_depth, log_dir))
+async def threads(api_key, query, context, n_tokens, model_name, max_depth, log_dir):
+    await run_threads(api_key, query, context, n_tokens, model_name, max_depth, log_dir)
     return redirect(url_for('home'))
 
-
 async def run_threads(api_key, query, context, n_tokens, model_name, max_depth, log_dir):
-    thread = await asyncio.to_thread(generate, api_key, log_dir, query, context, n_tokens, model_name, max_depth)
-    asyncio.create_task(thread)
+    result = await asyncio.to_thread(generate, api_key, log_dir, query, context, n_tokens, model_name, max_depth)
+    return result
 
 def generate(api_key:str, log_dir:str, query:str, context:str, n_tokens:int, model_name:str, max_depth:int):
     thinker = Reasoning(

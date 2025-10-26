@@ -3,24 +3,20 @@ from api.model.upload_file import upload_file
 import os
 
 generate_prompt = lambda width: f"""
+THINK LOUDLY!
 1. Break the problem into {width} step alternatives to adress it
 2. Choose one alternative
 3. DO NOT USE CONJECTURES. Only use well known theorems, lemmas and mathematical concepts. 
 
 Do not write an answer yet, only propose the alternatives.
-ALWAYS write math between $s or $$s, example:
-
-$$2x - 1 = 3$$ for display
-$2x-3 = 1$ for inline
 """
 
 continue_prompt = lambda width: f"""
-Now, extensively create an mathematical aproximation using this alternative,
+Now, extensively create an mathematical approximation using this alternative,
 proposing {width} new ones from the result of the approach.
 
-Also, don't use any conjecture, only theorems, lemmas and other mathematical concepts well known.
-!! IF NO CONCLUSION IS FOUND AFTER THAT, JUST KEEP GOING !!
-return SOLVED at end of the reponse ONLY in a certain conclusion, if there is found a solution.
+Remember: don't use any conjecture, only theorems, lemmas and other mathematical concepts well known.
+If any solution encountered, return SOLVED, else *only return PROGRESS*
 """
 
 class Reasoning:
@@ -34,18 +30,19 @@ class Reasoning:
     def reasoning_step(self, query:str, context:str, seq=None, init=True, depth=0, log_dir="log_dir_default"):
         if depth >= self.max_depth:
             return seq
-        
+
+        print(depth)
         seq = [] if seq is None else seq
         
         prompt = ""
         prompt += f"PROBLEM: {query}\n\n"
         prompt += generate_prompt(self.max_width) if init else continue_prompt(self.max_width)
 
-        print('PROMPT', prompt, context, self.model, self.n_tokens_default, log_dir)
+        #print('PROMPT', prompt, context, self.model, self.n_tokens_default, log_dir)
         result = make_request_ollama_reasoning(api_key=self.api_key, model_name=self.model, prompt=prompt, context=context, n_tokens=self.n_tokens_default)
         context += "\n\n" + prompt
 
-        if "SOLVED" in result:
+        if 'SOLVED' in result:
             with open(os.path.join('/tmp', 'output.md'), 'wb') as file:
                 file.write(result.encode('utf-8'))
 
@@ -54,10 +51,9 @@ class Reasoning:
 
             return seq
 
-        
         with open(os.path.join("/tmp", f'log{depth}.md'), 'wb') as file:
             file.write(result.encode('utf-8'))
-        
+
         with open(os.path.join("/tmp", f'log{depth}.md'), 'rb') as file:
             upload_file(log_dir, f'log{depth}.md', file)
 

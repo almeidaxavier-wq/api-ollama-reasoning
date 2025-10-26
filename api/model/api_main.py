@@ -29,6 +29,5 @@ def make_request_ollama_reasoning(api_key:str, model_name:str, prompt:str, conte
         stream=False
 
     )
-    print(result['message'])
-
+    #print(result['message'])
     return result["message"]["content"]
