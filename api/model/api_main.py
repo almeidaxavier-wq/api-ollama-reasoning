@@ -1,16 +1,13 @@
 from ollama import Client
 from dotenv import load_dotenv
-import os
 
-load_dotenv()
-API_KEY = os.getenv("OLLAMA_API_KEY")
-client = Client(
-    host="https://ollama.com",
-    headers = {'authorization': f"Bearer {API_KEY}"}
+def make_request_ollama_reasoning(api_key:str, model_name:str, prompt:str, context:str, n_tokens:int):
+    client = Client(
+        host="https://ollama.com",
+        headers={'authorization': f"Bearer {api_key}"}
 
-)
+    )
 
-def make_request_ollama_reasoning(model_name:str, prompt:str, context:str, n_tokens:int):
     print("Making request", context, model_name)
     result = client.chat(
         model=model_name,

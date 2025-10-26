@@ -1,11 +1,11 @@
 # Flask Restful API
 from flask.blueprints import Blueprint
-from flask import jsonify, request, url_for, redirect
+from flask import session, jsonify, request, url_for, redirect
 import asyncio
 
 # Essential imports
 from api.model.reasoning import Reasoning
-import threading
+
 
 loop = None
 
@@ -20,12 +20,13 @@ except Exception as err:
 bp_processing = Blueprint(name='process', import_name=__name__, static_folder='static', template_folder='templates')
 @bp_processing.route('/run_model', methods=['GET', 'POST'])
 def run_model():
-    json_code = request.get_json()
-    print(json_code, request)
+    json_code = session.get('json', None)
+    session.pop('json', None)
 
-    if request.is_json:
+    if json_code:
         query = json_code.get('query')
         context = json_code.get('context')
+        api_key = json_code.get('api_key')
         max_depth = json_code.get('max_depth')
         n_tokens = json_code.get('n_tokens')
         log_dir = json_code.get('log_dir', 'log_dir_default')
@@ -33,6 +34,7 @@ def run_model():
         model_name = json_code.get('model_name', 'deepseek-v3.1:671b-cloud')
         return redirect(url_for(
             'process.threads',
+            api_key=api_key,
             query=query,
             context=context,
             n_tokens=n_tokens,
@@ -43,16 +45,19 @@ def run_model():
 
     return jsonify({"message": "Send"}), 200
 
-@bp_processing.route('/run?query=<query>&context=<context>&n_tokens=<int:n_tokens>&model_name=<model_name>&max_depth=<int:max_depth>&log_dir=<log_dir>', methods=['GET', 'POST'])
-def threads(query, context, n_tokens, model_name, max_depth, log_dir):
-    asyncio.run(run_threads(query, context, n_tokens, model_name, max_depth, log_dir))
+@bp_processing.route('/run?api_key=<api_key>&query=<query>&context=<context>&n_tokens=<int:n_tokens>&model_name=<model_name>&max_depth=<int:max_depth>&log_dir=<log_dir>', methods=['GET','POST'])
+def threads(api_key, query, context, n_tokens, model_name, max_depth, log_dir):
+    asyncio.run(run_threads(api_key, query, context, n_tokens, model_name, max_depth, log_dir))
     return redirect(url_for('home'))
 
-async def run_threads(query, context, n_tokens, model_name, max_depth, log_dir):
-    await asyncio.to_thread(generate, log_dir, query, context, n_tokens, model_name, max_depth)
 
-def generate(log_dir:str, query:str, context:str, n_tokens:int, model_name:str, max_depth:int):
+async def run_threads(api_key, query, context, n_tokens, model_name, max_depth, log_dir):
+    thread = await asyncio.to_thread(generate, api_key, log_dir, query, context, n_tokens, model_name, max_depth)
+    asyncio.create_task(thread)
+
+def generate(api_key:str, log_dir:str, query:str, context:str, n_tokens:int, model_name:str, max_depth:int):
     thinker = Reasoning(
+        api_key=api_key,
         max_width=5,
         max_depth=max_depth,
         model_name=model_name if model_name else "deepseek-v3.1:671b-cloud",

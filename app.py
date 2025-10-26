@@ -1,14 +1,12 @@
-from flask import Flask, render_template, redirect, url_for, request
+from flask import Flask, session, render_template, redirect, url_for, request
 from forms.user import SubmitQueryForm
 from forms.search import Search
 from markupsafe import Markup
 from markdown import markdown
 from database import db, upload_file, Upload
-from api.model.reasoning import Reasoning
 from dotenv import load_dotenv
 from background_processing_api import bp_processing
 import os
-import requests
 
 load_dotenv()
 
@@ -68,29 +66,32 @@ def load(log_dir:str):
 @app.route("/submit_question", methods=["GET", "POST"])
 async def submit_question():
     form = SubmitQueryForm()
-    if form.validate_on_submit():
+    if form.validate_on_submit() and request.method == 'POST':
         # Form validation and processing
 
         query = form.query.data
         context = form.context.data
+        api_key = form.api_key.data
         log_dir_temp = form.log_dir.data or 'default_log'
         n_tokens = form.n_tokens.data if form.n_tokens.data is not None else 100000 # Default value
         model_name = form.model_name.data if form.model_name.data else "deepseek-v3.1:671b-cloud"
         max_depth = form.max_depth.data
 
-        requests.post('http://localhost:5000'+url_for('process.run_model'), json={
+        json_code = {
+            'api_key': api_key,
             'query':query,
             'context':context,
-            'log_dir':log_dir_temp,
-            'n_tokens': n_tokens,
-            'model_name': model_name,
-            'max_depth': max_depth
+            'log_dir_temp':log_dir_temp,
+            'n_tokens':n_tokens,
+            'model_name':model_name,
+            'max_depth':max_depth,
+            'log_dir':log_dir_temp
 
-        }, headers={'Content-Type': 'application/json'})
+        }
 
-        # Generates and stores the raw data on database
-        return redirect(url_for('home'))
-    
+        session['json'] = json_code
+        return redirect(url_for('process.run_model'))
+
     return render_template('form.html', form=form)
     
 

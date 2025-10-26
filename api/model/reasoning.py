@@ -24,11 +24,12 @@ return SOLVED at end of the reponse ONLY in a certain conclusion, if there is fo
 """
 
 class Reasoning:
-    def __init__(self, max_width:int, max_depth:int, model_name:str="deepseek-v3.1:671b-cloud", n_tokens_default:int=100000):
+    def __init__(self, api_key:str, max_width:int, max_depth:int, model_name:str="deepseek-v3.1:671b-cloud", n_tokens_default:int=100000):
         self.max_width = max_width,
         self.max_depth = max_depth
         self.model = model_name 
         self.n_tokens_default = n_tokens_default
+        self.api_key = api_key
 
     def reasoning_step(self, query:str, context:str, seq=None, init=True, depth=0, log_dir="log_dir_default"):
         if depth >= self.max_depth:
@@ -41,7 +42,7 @@ class Reasoning:
         prompt += generate_prompt(self.max_width) if init else continue_prompt(self.max_width)
 
         print('PROMPT', prompt, context, self.model, self.n_tokens_default, log_dir)
-        result = make_request_ollama_reasoning(model_name=self.model, prompt=prompt, context=context, n_tokens=self.n_tokens_default)
+        result = make_request_ollama_reasoning(api_key=self.api_key, model_name=self.model, prompt=prompt, context=context, n_tokens=self.n_tokens_default)
         context += "\n\n" + prompt
 
         if "SOLVED" in result:
