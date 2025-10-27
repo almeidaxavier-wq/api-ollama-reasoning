@@ -9,6 +9,7 @@ THINK LOUDLY!
 3. DO NOT USE CONJECTURES. Only use well known theorems, lemmas and mathematical concepts. 
 
 Do not write an answer yet, only propose the alternatives.
+Display math in KATEX form
 """
 
 continue_prompt = lambda width: f"""
@@ -17,6 +18,7 @@ proposing {width} new ones from the result of the approach.
 
 Remember: don't use any conjecture, only theorems, lemmas and other mathematical concepts well known.
 If any solution encountered, return SOLVED, else *only return PROGRESS*
+*Display math in KATEX form*
 """
 
 class Reasoning:
@@ -47,7 +49,7 @@ class Reasoning:
                 file.write(result.encode('utf-8'))
 
             with open(os.path.join("/tmp", 'output.md'), 'rb') as file:
-                upload_file(log_dir, 'output.md', file)
+                upload_file(log_dir, 'output.md', file.read())
 
             return seq
 
@@ -55,6 +57,6 @@ class Reasoning:
             file.write(result.encode('utf-8'))
 
         with open(os.path.join("/tmp", f'log{depth}.md'), 'rb') as file:
-            upload_file(log_dir, f'log{depth}.md', file)
+            upload_file(log_dir, f'log{depth}.md', file.read())
 
         return self.reasoning_step(query=query, context=context+"\n\n"+result, seq=seq+[result], init=False, depth=depth+1, log_dir=log_dir)

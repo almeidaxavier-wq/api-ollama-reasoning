@@ -82,7 +82,6 @@ async def submit_question():
         }
 
         return redirect(url_for('process.run_model'))
-
     return render_template('form.html', form=form)
     
 
