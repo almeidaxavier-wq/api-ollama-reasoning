@@ -22,12 +22,12 @@ def make_request_ollama_reasoning(api_key:str, model_name:str, prompt:str, conte
             }
 
         ], options={
-            "temperature":0.2,
+            "temperature":0.01,
             "num_predict": n_tokens,
 
         },
-        stream=False
+        stream=True
 
     )
     #print(result['message'])
-    return result["message"]["content"]
+    return result
