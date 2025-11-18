@@ -5,7 +5,7 @@ import os.path as path
 
 db = MongoEngine()
 
-class User:
+class User(Document):
     id = IntField(unique=True, required=True, primary_key=True)
     username = StringField(required=True, unique=True)
     email = StringField(required=True, unique=True)

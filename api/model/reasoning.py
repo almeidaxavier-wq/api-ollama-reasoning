@@ -1,5 +1,4 @@
 from api.model.api_main import make_request_ollama_reasoning
-from api.model.upload_file import upload_file
 import os
 
 generate_prompt = lambda width: f"""
@@ -38,6 +37,11 @@ class Reasoning:
 
         #print('PROMPT', prompt, context, self.model, self.n_tokens_default, log_dir)
         result = make_request_ollama_reasoning(api_key=self.api_key, model_name=self.model, prompt=prompt, context=context, n_tokens=self.n_tokens_default)
-        self.context += "\n\n" + prompt
+        self.context += "\n\n" + prompt + "\n\n" + result
 
-        return result
+        def iterate(r):
+            for chunk in r:
+                if 'message' in chunk:
+                    yield chunk['message']['content']
+
+        return iterate(result)
