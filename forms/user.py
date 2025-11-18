@@ -1,6 +1,7 @@
-from wtforms import StringField, SubmitField, IntegerField
-from wtforms.validators import DataRequired, Optional, NumberRange
+from wtforms import StringField, SubmitField, IntegerField, PasswordField
+from wtforms.validators import DataRequired, Optional, NumberRange, Email
 from flask_wtf import FlaskForm
+from database.db import User
 
 class SubmitQueryForm(FlaskForm):
     query = StringField("Query ", validators=[DataRequired()])
@@ -11,4 +12,14 @@ class SubmitQueryForm(FlaskForm):
     max_depth = IntegerField("Max Depth", validators=[DataRequired(), NumberRange(2, 20)])
     model_name = StringField("Model name", validators=[Optional()])
     submit = SubmitField('submit')
+
+class CreateUser(FlaskForm):
+    username = StringField("Username", validators=[DataRequired()])
+    email = StringField("Email", validators=[DataRequired(), Email()])
+    password = PasswordField("Password", validators=[DataRequired(), EqualTo('confirm', message="Passwords must match")])
+    confirm = PasswordField("Password", validators=[DataRequired()])
+
+class LoginUser(FlaskForm):
+    username_or_email = StringField("Username or email", validators=[DataRequired()])
+    password = PasswordField("Password", validators=[DataRequired()])
 

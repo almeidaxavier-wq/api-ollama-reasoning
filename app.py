@@ -2,11 +2,11 @@ from flask import Flask, session, render_template, redirect, url_for, request
 from flask import stream_with_context
 
 from api.model.reasoning import Reasoning
-from forms.user import SubmitQueryForm
+from forms.user import SubmitQueryForm, LoginUser, CreateUser
 from forms.search import Search
 from markupsafe import Markup
 from markdown import markdown
-from database.db import db, upload_file, Upload
+from database.db import db, upload_file, Upload, User
 from dotenv import load_dotenv
 import os
 
@@ -19,8 +19,14 @@ app.config['MONGODB_HOST'] = os.getenv("MONGODB_URI")
 threads = []
 db.init_app(app)
 thinker = Reasoning("", 0, 0)
+session["logged_in"] = False
 
-def read_markdown_to_html(username:str, log_dir:str):
+def check_if_logged_in(route):
+    if not session.get("logged_in"):
+        return redirect(url_for('login'))
+    return route
+
+def read_markdown_to_html(user, log_dir:str):
     objs = Upload.objects(filename__contains=log_dir, creator=username)
     markdown_content = ""
     for obj in objs:
@@ -32,6 +38,8 @@ def read_markdown_to_html(username:str, log_dir:str):
 
 @app.route("/", methods=["GET", "POST"])
 def home():
+    if not session['logged_in']:
+        return redirect(url_for('login'))
     form = Search()
 
     if form.validate_on_submit():
@@ -50,6 +58,29 @@ def home():
 
         return render_template('search.html', query=files)
     return render_template('index.html', form=form)
+
+@app.route("/login", methods=['GET', 'POST'])
+def login()
+    form = LoginUser()
+    if form.validate_on_submit():
+        username_or_email = form.data.username_or_email
+        password = form.data.password
+
+        users = User.object(username=username_or_email, email=username_or_email)
+        if users.first() is None:
+            flash("No users matching the description", 'error')
+
+        else:
+            usr = users.first()
+            if usr.check_password(password):
+                flash('Sucessfully logged in')
+                return redirect(url_for('home'))
+
+            else:
+                flash('Incorrect Password')
+
+    return render_template('user_forms.html', login=True)       
+    
 
 @app.route("/<username>/<log_dir>")
 def read(username:str, log_dir:str):
@@ -76,8 +107,9 @@ async def submit_question():
         return stream_with_context(thinker.reasoning_step(
             query=session["json"].get("query"),
             context=session["json"].get("context") + thinker.context,
-            init = session["json"].get("current_depth") == 0
+            init=session["json"].get("current_depth") == 0
         ))
+
     return render_template('form.html', form=form)
     
 

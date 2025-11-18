@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block link %}
+{% endblock %}
+
+{% block content %}
+<div class="content">
+    {% if login %}
+        <form action="" method="post">
+            {{form.username.label}} <br> {{form.username(size=80)}} <br>
+            {{form.email.label}} <br> {{form.email(size=80)}} <br>
+            {{form.password.label}} <br> {{form.password(size=30)}} <br>
+            {{form.confirm.label}} <br> {{form.confirm(size=30)}}
+        </form>
+    {% else %}
+        <form action="" method="post">
+            {{form.username_or_email.label}} <br> {{form.username_or_email(size=80)}} <br>
+            {{form.password.label}} <br> {{form.password(size=30)}} <br>
+        </form>
+        <a href="/register">Ainda não registrado? Clique aqui!</a>
+    {% endif %}
+</div>
+{% endblock %}
