@@ -18,8 +18,10 @@ class CreateUser(FlaskForm):
     email = StringField("Email", validators=[DataRequired(), Email()])
     password = PasswordField("Password", validators=[DataRequired(), EqualTo('confirm', message="Passwords must match")])
     confirm = PasswordField("Password", validators=[DataRequired()])
+    submit = SubmitField("Register")
 
 class LoginUser(FlaskForm):
     username_or_email = StringField("Username or email", validators=[DataRequired()])
     password = PasswordField("Password", validators=[DataRequired()])
+    submit = SubmitField("Login")
 

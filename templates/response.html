@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
 {% block content %}
 
-{{aditional_code}}
+{% for item in aditional_code %}
+    {{ item|safe }}
+{% endfor %}
 
 {% endblock%}

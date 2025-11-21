@@ -3,3 +3,4 @@ api/model/.env
 .env
 env
 **/*/__pycache__
+scripts

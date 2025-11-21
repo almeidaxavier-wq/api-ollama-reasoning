@@ -22,7 +22,7 @@ If any solution encountered, return SOLVED, else *only return PROGRESS*
 
 class Reasoning:
     def __init__(self, api_key:str, max_width:int, max_depth:int, model_name:str="deepseek-v3.1:671b-cloud", n_tokens_default:int=100000):
-        self.max_width = max_width,
+        self.max_width = max_width
         self.max_depth = max_depth
         self.model = model_name 
         self.n_tokens_default = n_tokens_default
@@ -35,13 +35,18 @@ class Reasoning:
         prompt += f"PROBLEM: {query}\n\n"
         prompt += generate_prompt(self.max_width) if init else continue_prompt(self.max_width)
 
-        #print('PROMPT', prompt, context, self.model, self.n_tokens_default, log_dir)
-        result = make_request_ollama_reasoning(api_key=self.api_key, model_name=self.model, prompt=prompt, context=context, n_tokens=self.n_tokens_default)
-        self.context += "\n\n" + prompt + "\n\n" + result
+        # Request returns a stream/iterator of chunks
+        r = make_request_ollama_reasoning(api_key=self.api_key, model_name=self.model, prompt=prompt, context=context, n_tokens=self.n_tokens_default)
 
-        def iterate(r):
+        # add prompt to context first
+        self.context += "\n\n" + prompt + "\n\n"
+
+        def iterate():
             for chunk in r:
                 if 'message' in chunk:
-                    yield chunk['message']['content']
+                    content = chunk['message'].get('content', '')
+                    # accumulate into context while streaming
+                    self.context += content
+                    yield content
 
-        return iterate(result)
+        return iterate()
