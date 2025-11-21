@@ -1,14 +1,14 @@
 from flask import Blueprint, redirect, url_for, session, stream_with_context, request, Response
 from api.model.reasoning import Reasoning
+from database.db import Upload
+import os
 
 bp_processing_api = Blueprint("bp_processing_api", __name__)
 thinker = Reasoning("", 0, 0)
 
-@bp_processing_api.route('/process')
-def process():
-    query = request.args.get('query')
-    max_width = request.args.get('max_width')
-    model = request.args.get('model')
+@bp_processing_api.route('/process?query=<query>&log_dir=<log_dir>&model=<model>&max_width=<max_width>')
+def process(query, log_dir, model, max_width):
+    obj_context = Upload.objects(filename__contains=os.path.join(log_dir, 'context.md')).first()
 
     if not query:
         return redirect(url_for('home'))
@@ -27,7 +27,7 @@ def process():
 
     result = thinker.reasoning_step(
         query=query,
-        context=session.get(query, {}).get("context"),
+        context=obj_context.file.read().decode('utf-8'),
         init=session.get(query, {}).get("current_depth") == 0
     )
 

@@ -118,11 +118,16 @@ def register():
 def read(username:str, log_dir:str):
     generator = requests.get(url_for('process', query=username))
     user = User.objects(username=username).first()
-    obj = Upload.objects(filename__contains=log_dir, creator=user).first()
-    content = obj.file.read().decode('utf-8')
-
+    
+    obj_reponse = Upload.objects(filename__contains=os.path.join(log_dir, 'response.md'), creator=user).first()
+    content = obj_reponse.file.read().decode('utf-8')
     content += '\n\n' + generator.text
-    obj.file.put(content.encode('utf-8'), content_type="text/markdown")
+
+    obj_context = Upload.objects(filename__contains=os.path.join(log_dir, 'context.md'), creator=user).first()
+    context_content = obj_context.file.read().decode('utf-8')
+    context_content += '\n\n' + thinker.context
+
+    obj_reponse.file.put(content.encode('utf-8'), content_type="text/markdown")
     #print(html_code)
     
     return render_template('response.html', aditional_code=generator)
