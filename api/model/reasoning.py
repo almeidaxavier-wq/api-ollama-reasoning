@@ -29,15 +29,16 @@ class Reasoning:
         self.api_key = api_key
         self.context = ""
 
-    def reasoning_step(self, query:str, context:str, init=True, prompt=None):
+    def reasoning_step(self, query:str, init=True, prompt=None):
         #print(depth)
         if prompt is None:
             prompt = ""
             prompt += f"PROBLEM: {query}\n\n"
-            prompt += generate_prompt(self.max_width) if init else continue_prompt(self.max_width)
+        
+        prompt += generate_prompt(self.max_width) if init else continue_prompt(self.max_width)
 
         # Request returns a stream/iterator of chunks
-        r = make_request_ollama_reasoning(api_key=self.api_key, model_name=self.model, prompt=prompt, context=context, n_tokens=self.n_tokens_default)
+        r = make_request_ollama_reasoning(api_key=self.api_key, model_name=self.model, prompt=prompt, context=self.context, n_tokens=self.n_tokens_default)
 
         # add prompt to context first
         self.context += "\n\n" + prompt + "\n\n"

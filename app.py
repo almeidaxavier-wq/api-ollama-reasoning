@@ -75,7 +75,14 @@ def store_data(process_url: str, username: str, log_dir: str, max_depth: int):
         print(f"store_data: depth {i} received content length:", len(content))
         # save the aggregated content for this depth once
         try:
-            upload_file(user, log_dir, f'response.md', content.encode('utf-8'), i)
+            if i == 0:
+                obj_response = Upload.objects(filename__contains=os.path.join(log_dir, 'response.md'), creator=user).first()
+                obj_response.file.delete()
+                obj_response.file.put(''.encode('utf-8'), content_type="text/markdown")
+                obj_response.depth = 0
+                obj_response.save()
+
+            upload_file(user, log_dir, 'response.md', content.encode('utf-8'), i)
         except Exception as e:
             print("store_data: failed to upload file:", e)
 
@@ -215,6 +222,7 @@ def submit_question():
             depth=0
         )
         thinker.api_key = form.api_key.data
+        thinker.context = f"Initial context: {form.context.data}"
         return redirect(url_for('write', query=form.query.data, prompt=None, username=session.get('username'), log_dir=form.log_dir.data or 'default_log', model=form.model_name.data or "deepseek-v3.1:671b-cloud", max_width=form.max_width.data, max_depth=form.max_depth.data, n_tokens=form.n_tokens.data if form.n_tokens.data is not None else 100000, api_key=form.api_key.data))
     return render_template('form.html', form=form)
     

@@ -2,6 +2,7 @@ from flask import Blueprint, redirect, url_for, session, stream_with_context, re
 from api.model.reasoning import Reasoning
 from database.db import Upload
 import os
+import time
 
 bp_processing_api = Blueprint("bp_processing_api", __name__)
 thinker = Reasoning("", 0, 0)
@@ -24,12 +25,15 @@ def process(query, log_dir, model, max_width, max_depth, n_tokens, prompt, api_k
     
     thinker.api_key = api_key
     thinker.max_depth = int(max_depth) if max_depth is not None else thinker.max_depth
-    thinker.context = obj_context.file.read().decode('utf-8')
     thinker.n_tokens_default = int(n_tokens) if n_tokens is not None else thinker.n_tokens_default
+    print(thinker.max_depth, obj_context.depth)
+    time.sleep(1)
+    if prompt == 'None':
+        obj_context.file.delete()
+        obj_context.depth == 0
 
     result = thinker.reasoning_step(
         query=query,
-        context=obj_context.file.read().decode('utf-8'),
         init=obj_context.depth == 0,
         prompt=None if prompt == 'None' else prompt
     )
