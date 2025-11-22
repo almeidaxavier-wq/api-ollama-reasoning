@@ -1,9 +1,10 @@
 from flask import Flask, session, render_template, redirect, url_for, request, flash
-from flask import stream_with_context
-from processing import bp_processing_api
+from turbo_flask import Turbo
+from processing import bp_processing_api, thinker
+from thread_manager import ThreadManager
 from functools import wraps
+import time
 
-from api.model.reasoning import Reasoning
 from forms.user import SubmitQueryForm, LoginUser, CreateUser
 from forms.search import Search
 from markupsafe import Markup
@@ -19,11 +20,69 @@ load_dotenv()
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 app.config['MONGODB_HOST'] = os.getenv("MONGODB_URI")
+app.config['SERVER_NAME'] = 'localhost:5000'
 app.register_blueprint(bp_processing_api)
+turbo = Turbo()
 
+turbo.init_app(app)
 db.init_app(app)
-thinker = Reasoning("", 0, 0)
 
+manager = ThreadManager()
+manager.start()
+
+def read_markdown_to_html(content:str):
+    html_code = markdown(content)
+    #print(html_code)
+    return Markup(html_code)
+
+def store_data(process_url: str, username: str, log_dir: str, max_depth: int):
+    """Worker that streams the processing endpoint and stores the aggregated content per depth.
+
+    Args:
+        process_url: Full URL to call (absolute, with query params) so we don't need Flask context here.
+    """
+    user = User.objects(username=username).first()
+    if user is None:
+        print("store_data: user not found", username)
+        return
+
+    prompt = None
+    print("store_data max_depth:", max_depth)
+    for i in range(int(max_depth)):
+        print(f"Thread depth {i}")
+        content = ""
+
+        resp = requests.get(process_url, stream=True)
+        for chunk in resp.iter_content(chunk_size=1024):
+            if not chunk:
+                continue
+            try:
+                content += chunk.decode('utf-8')
+            except Exception:
+                # fallback: treat as str
+                content += str(chunk)
+
+        with app.app_context():
+            # render only the fragment that will be appended to the page
+            turbo.push(turbo.append(render_template('_response_fragment.html', content=read_markdown_to_html(content)), 'responseContent'))
+        
+        if "SOLVED" in content and "PROGRESS" not in content:
+            print("store_data: problem solved, stopping further processing.")
+            break
+
+        
+        time.sleep(0.1)  # allow turbo to process
+        print(f"store_data: depth {i} received content length:", len(content))
+        # save the aggregated content for this depth once
+        try:
+            upload_file(user, log_dir, f'response.md', content.encode('utf-8'), i)
+        except Exception as e:
+            print("store_data: failed to upload file:", e)
+
+        # update prompt/context tracking
+        prompt = thinker.context if prompt is None else (prompt + thinker.context)
+        
+        print("manager threads:", manager.threads)
 
 def check_if_logged_in(f):
     @wraps(f)
@@ -32,16 +91,6 @@ def check_if_logged_in(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated
-
-def read_markdown_to_html(user, log_dir:str):
-    objs = Upload.objects(filename__contains=log_dir, creator=user)
-    markdown_content = ""
-    for obj in objs:
-        markdown_content += '\n\n' + obj.file.read().decode('utf-8')
-
-    html_code = markdown(markdown_content)
-    #print(html_code)
-    return Markup(html_code)
 
 @app.route("/", methods=["GET", "POST"])
 @check_if_logged_in
@@ -83,6 +132,8 @@ def login():
             if usr.check_password(password):
                 flash('Sucessfully logged in')
                 session['logged_in'] = True
+                session['username'] = usr.username
+
                 return redirect(url_for('home'))
 
             else:
@@ -104,6 +155,7 @@ def register():
 
         else:
             session['logged_in'] = True
+            session['username'] = username
             usr = User(id=User.objects.count()+1, username=username, email=email)
             usr.generate_password_hash(password)
             usr.save()
@@ -111,27 +163,33 @@ def register():
             return redirect(url_for('home'))
     return render_template('user_forms.html', login=False, form=form)
 
-    
 
 @app.route("/<username>/<log_dir>")
 @check_if_logged_in
-def read(username:str, log_dir:str):
-    generator = requests.get(url_for('process', query=username))
+def view_logs(username:str, log_dir:str):
     user = User.objects(username=username).first()
+    if user is None:
+        flash("User not found", 'error')
+        return redirect(url_for('home'))
+
+    objs = Upload.objects(filename__contains=os.path.join(log_dir, 'response.md'), creator=user).order_by('depth')
+    if objs.first() is None:
+        flash("No logs found for this user/log_dir", 'error')
+        return redirect(url_for('home'))
     
-    obj_reponse = Upload.objects(filename__contains=os.path.join(log_dir, 'response.md'), creator=user).first()
-    content = obj_reponse.file.read().decode('utf-8')
-    content += '\n\n' + generator.text
+    return render_template('response.html', uploads=objs, read_markdown_to_html=read_markdown_to_html)
 
-    obj_context = Upload.objects(filename__contains=os.path.join(log_dir, 'context.md'), creator=user).first()
-    context_content = obj_context.file.read().decode('utf-8')
-    context_content += '\n\n' + thinker.context
-
-    obj_reponse.file.put(content.encode('utf-8'), content_type="text/markdown")
-    #print(html_code)
+@app.route("/<username>/<log_dir>?query=<query>&model=<model>&max_width=<max_width>&max_depth=<max_depth>&n_tokens=<n_tokens>&api_key=<api_key>")
+@check_if_logged_in
+def write(username:str, log_dir:str, query:str, model:str, max_width:int, max_depth:int, n_tokens:int, api_key:str):
+    process_url = url_for('bp_processing_api.process', query=query, log_dir=log_dir, model=model, max_width=max_width, max_depth=max_depth, n_tokens=n_tokens, api_key=api_key, prompt="None", _external=True)
+    t = threading.Thread(target=store_data, args=(process_url, username, log_dir, max_depth))
+    # append thread in a thread-safe way so ThreadManager can pick it up
+    with manager.lock:
+        manager.threads.append(t)
     
-    return render_template('response.html', aditional_code=generator)
-
+    print("queued thread", t)
+    return render_template('response.html')
 
 @app.route("/submit_question", methods=["GET", "POST"])
 @check_if_logged_in
@@ -139,23 +197,27 @@ def submit_question():
     form = SubmitQueryForm()
     if form.validate_on_submit() and request.method == 'POST':
         # Form validation and processing
+        print(User.objects(username=session.get('username')).first())
+        time.sleep(1)
+        upload_file(
+            user=User.objects(username=session.get('username')).first(),
+            log_dir=form.log_dir.data or 'default_log',
+            filename='context.md',
+            raw_file=f"Initial context: {form.context.data}".encode('utf-8'),
+            depth=0
+        )
 
-        if session.get(form.query.data, None) is None:
-            session[form.query.data] = {
-                'context': form.context.data,
-                'api_key': form.api_key.data,
-                'log_dir_temp' : form.log_dir.data or 'default_log',
-                'n_tokens' : form.n_tokens.data if form.n_tokens.data is not None else 100000,  # Default value
-                'model_name' : form.model_name.data if form.model_name.data else "deepseek-v3.1:671b-cloud",
-                'max_depth' : form.max_depth.data,
-                "current_depth": -1
-            }
-
-        session[form.query.data]['current_depth'] += 1
-        return redirect(url_for('read', username=form.query.data, log_dir=session[form.query.data]['log_dir_temp']))
+        upload_file(
+            user=User.objects(username=session.get('username')).first(),
+            log_dir=form.log_dir.data or 'default_log',
+            filename='response.md',
+            raw_file="".encode('utf-8'),
+            depth=0
+        )
+        thinker.api_key = form.api_key.data
+        return redirect(url_for('write', query=form.query.data, prompt=None, username=session.get('username'), log_dir=form.log_dir.data or 'default_log', model=form.model_name.data or "deepseek-v3.1:671b-cloud", max_width=form.max_width.data, max_depth=form.max_depth.data, n_tokens=form.n_tokens.data if form.n_tokens.data is not None else 100000, api_key=form.api_key.data))
     return render_template('form.html', form=form)
     
 
 if __name__ == '__main__':
-    threads = []
     app.run(debug=True)

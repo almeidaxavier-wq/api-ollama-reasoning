@@ -1,8 +1,31 @@
 {% extends 'base.html' %}
+
+{% block link %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex.min.js" integrity="sha384-J+9dG2KMoiR9hqcFao0IBLwxt6zpcyN68IgwzsCSkbreXUjmNVRhPFTssqdSGjwQ" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/contrib/auto-render.min.js" integrity="sha384-hCXGrW6PitJEwbkoStFjeJxv+fSOOQKOPbJxSfM6G5sWZjAyWhXiTIIAmQqnlLlh" crossorigin="anonymous"
+onload="renderMathInElement(document.body);"></script>
+{% endblock %}
+
 {% block content %}
-
-{% for item in aditional_code %}
-    {{ item|safe }}
-{% endfor %}
-
-{% endblock%}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        renderMathInElement(document.body, {
+          // customised options
+          // • auto-render specific keys, e.g.:
+          delimiters: [
+              {left: '$$', right: '$$', display: true},
+              {left: '$', right: '$', display: false},
+              {left: '\\(', right: '\\)', display: false},
+              {left: '\\[', right: '\\]', display: true},
+              {left: '(', right: ')', display: false},
+              {left: '[', right: ']', display: true}
+          ],
+          // • rendering keys, e.g.:
+          throwOnError : false
+        });
+    });
+</script>
+<div class="response-content" id="responseContent">
+</div>
+{% endblock %}
