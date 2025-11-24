@@ -1,4 +1,5 @@
 from api.model.api_main import make_request_ollama_reasoning
+from database.db import Upload, User
 import os
 
 generate_prompt = lambda width: f"""
@@ -20,6 +21,27 @@ If any solution encountered, return SOLVED, else *only return PROGRESS*
 *Display math in KATEX form*
 """
 
+article_prompt = lambda iterations: f"""
+Now, write a detailed article about the problem and the solution, using the following structure:
+
+1. Introduction: Briefly introduce the problem and its significance.
+2. Problem Statement: Clearly state the problem and any assumptions.
+3. Methodology: Describe the approach taken to solve the problem, including any algorithms or techniques used.
+4. Results: Present the results of the solution, including any relevant data or visualizations.
+5. Conclusion: Summarize the findings and discuss any implications or future work.
+
+Render math in KATEX form.
+MAKE SURE TO WRITE WITHIN THE NUMBER OF ITERATIONS BELLOW:
+Iterations {iterations}
+"""
+
+article_prompt_continue = lambda iteration: f"""
+Continue writing the article, expanding on the Methodology and Results sections.
+Make sure to include any additional insights or observations that may be relevant.
+Render math in KATEX form.
+
+"""
+
 class Reasoning:
     def __init__(self, api_key:str, max_width:int, max_depth:int, model_name:str="deepseek-v3.1:671b-cloud", n_tokens_default:int=100000):
         self.max_width = max_width
@@ -29,26 +51,79 @@ class Reasoning:
         self.api_key = api_key
         self.context = ""
 
-    def reasoning_step(self, query:str, init=True, prompt=None):
+    def reasoning_step(self, username:str, log_dir:str, query:str, init=True, prompt=None):
         #print(depth)
         if prompt is None:
             prompt = ""
             prompt += f"PROBLEM: {query}\n\n"
         
         prompt += generate_prompt(self.max_width) if init else continue_prompt(self.max_width)
+        obj_context = Upload.objects(filename__contains=os.path.join(log_dir, 'context.md'), creator=User.objects(username=username).first()).first()
+        context = obj_context.file.read().decode('utf-8') if obj_context and obj_context.file.read() else ""
+        context += "\n\n" + prompt + "\n\n"
 
-        # Request returns a stream/iterator of chunks
+        # Request returns a stream/iterator of chunks 
         r = make_request_ollama_reasoning(api_key=self.api_key, model_name=self.model, prompt=prompt, context=self.context, n_tokens=self.n_tokens_default)
 
-        # add prompt to context first
-        self.context += "\n\n" + prompt + "\n\n"
-
-        def iterate():
+        def iterate(context=context):
+            # accumulate chunks in memory and persist periodically to avoid
+            # expensive GridFS writes on every token/chunk, which add latency.
+            persist_interval = 5  # persist after this many chunks
+            chunk_count = 0
             for chunk in r:
                 if 'message' in chunk:
                     content = chunk['message'].get('content', '')
                     # accumulate into context while streaming
-                    self.context += content
+                    context += content
+                    chunk_count += 1
+
+                    # persist every `persist_interval` chunks to reduce IO
+                    if obj_context is not None and chunk_count >= persist_interval:
+                        try:
+                            obj_context.file.delete()
+                        except Exception:
+                            pass
+                        try:
+                            obj_context.file.put(context.encode('utf-8'), content_type='text/markdown')
+                            obj_context.save()
+                        except Exception:
+                            pass
+                        chunk_count = 0
+
+                    yield content
+
+            # After streaming finishes, make sure we persist the final context once
+            if obj_context is not None:
+                try:
+                    obj_context.file.delete()
+                except Exception:
+                    pass
+                try:
+                    obj_context.file.put(context.encode('utf-8'), content_type='text/markdown')
+                    obj_context.save()
+                except Exception:
+                    pass
+
+        return iterate()
+
+    def write_article(self, username:str, log_dir:str, iterations:int):
+        article_object = Upload.objects(filename__contains=os.path.join(log_dir, 'article.md'), creator=User.objects(username=username).first()).first()
+        context = article_object.file.read().decode('utf-8') if article_object and article_object.file.read() else ""
+        prompt = article_prompt(iterations) if context == "" else article_prompt_continue(iterations)
+        
+        context += "\n\n" + prompt + "\n\n"
+        r = make_request_ollama_reasoning(api_key=self.api_key, model_name=self.model, prompt=prompt, context=context, n_tokens=self.n_tokens_default)
+
+        def iterate(context=context):
+            for chunk in r:
+                if 'message' in chunk:
+                    content = chunk['message'].get('content', '')
+                    # accumulate into context while streaming
+                    context += content
+                    article_object.file.delete()
+                    article_object.file.put(context.encode('utf-8'), content_type="text/markdown")
+                    article_object.save()
+
                     yield content
 
         return iterate()

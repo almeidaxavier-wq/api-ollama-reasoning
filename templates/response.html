@@ -1,13 +1,53 @@
 {% extends 'base.html' %}
-
-{% block link %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex.min.js" integrity="sha384-J+9dG2KMoiR9hqcFao0IBLwxt6zpcyN68IgwzsCSkbreXUjmNVRhPFTssqdSGjwQ" crossorigin="anonymous"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/contrib/auto-render.min.js" integrity="sha384-hCXGrW6PitJEwbkoStFjeJxv+fSOOQKOPbJxSfM6G5sWZjAyWhXiTIIAmQqnlLlh" crossorigin="anonymous"
-onload="renderMathInElement(document.body);"></script>
-{% endblock %}
+{%block link%}
+<link rel="stylesheet" href="{{url_for('static', filename='css/response.css')}}">
+{%endblock%}
 
 {% block content %}
-<div class="response-content" id="responseContent">
-</div>
+<h3>If you close the page, you lose the content generation!!!</h3>
+<leftside class="response-content data-markdown" id="responseContent">
+    {% if response %}
+        {{response|safe}}
+    {% else %}
+        <script>
+            let params = new URLSearchParams(window.location.search);
+            function fetchResponse() {
+                fetch('/process'+'?' + params.toString())
+                    .then(response => response.json())
+                    .then(data => {
+                        const responseContent = document.getElementById('responseContent');
+                        responseContent.innerHTML = data.response;
+                        window.renderMarkdown(responseContent);
+                    })
+                    .catch(error => console.error('Error fetching response:', error));
+            }
+            fetchResponse();
+        </script>
+    {% endif %}
+</leftside>
+<rightside class="article-content data-markdown" id="articleContent">
+    {% if article %}
+        {{article|safe}}
+    {% elif not article and %}
+        <script>
+            let new_params = new URLSearchParams(window.location.search);
+
+            function fetchResponse() {
+                if (new_params == params){
+                    return;
+                }
+
+                fetch('/process'+'?' + params.toString())
+                    .then(response => response.json())
+                    .then(data => {
+                        const responseContent = document.getElementById('responseContent');
+                        responseContent.innerHTML = data.response;
+                        window.renderMarkdown(responseContent);
+                    })
+                    .catch(error => console.error('Error fetching response:', error));
+            }
+            fetchResponse();
+        </script>
+    {% endif %}
+</rightside>
 {% endblock %}

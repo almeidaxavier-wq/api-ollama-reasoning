@@ -4,8 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ollama API Augmented</title>
-    <link rel="stylesheet" href="{{url_for('static', filename='css/main.css')}}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex.min.css" integrity="sha384-WcoG4HRXMzYzfCgiyfrySxx90XSl2rxY5mnVY5TwtWE6KLrArNKn0T/mOgNL0Mmi" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex.min.js" integrity="sha384-J+9dG2KMoiR9hqcFao0IBLwxt6zpcyN68IgwzsCSkbreXUjmNVRhPFTssqdSGjwQ" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/contrib/auto-render.min.js" integrity="sha384-hCXGrW6PitJEwbkoStFjeJxv+fSOOQKOPbJxSfM6G5sWZjAyWhXiTIIAmQqnlLlh" crossorigin="anonymous"
+        ></script>
+    <!-- Markdown renderer (marked) and sanitizer (DOMPurify) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+    <script defer>
+        // After DOM is ready, convert markdown containers to HTML and render math
+        document.addEventListener('DOMContentLoaded', () => {
+            const katexOptions = {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '\\[', right: '\\]', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError: false
+            };
+
+            function renderMarkdownIn(el) {
+                try {
+                    const src = el.getAttribute('data-markdown') || el.textContent || '';
+                    // parse markdown to HTML
+                    const html = window.marked ? window.marked.parse(src) : src;
+                    // sanitize
+                    const safe = window.DOMPurify ? DOMPurify.sanitize(html) : html;
+                    el.innerHTML = safe;
+                    // render math inside the newly rendered HTML
+                    if (window.renderMathInElement) {
+                        renderMathInElement(el, katexOptions);
+                    }
+                } catch (e) {
+                    console.error('Markdown render error', e);
+                }
+            }
+
+            // process elements explicitly marked for markdown or with class
+            const selector = '[data-markdown], .markdown';
+            document.querySelectorAll(selector).forEach(renderMarkdownIn);
+
+            // also expose a helper for dynamic updates
+            window.renderMarkdown = (root=document) => {
+                root.querySelectorAll && root.querySelectorAll(selector).forEach(renderMarkdownIn);
+            };
+        });
+    </script>
+    <link rel="stylesheet" href="{{url_for('static', filename='css/main.css')}}">
+    {% block link %}
+    {% endblock %}
     {{turbo()}}
 </head>
 <body>
