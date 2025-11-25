@@ -5,12 +5,12 @@
 
 {% block content %}
 <h3>Log and article creation</h3>
-<leftside class="response-content data-markdown">
+<leftside class="response-content data-markdown" id="responseContent">
     {% if response %}
         {{response|safe}}
     {% endif %}
 </leftside>
-<rightside class="article-content data-markdown">
+<rightside class="article-content data-markdown" id="articleContent">
     {% if article %}
         {{article|safe}}
     {% endif %}
