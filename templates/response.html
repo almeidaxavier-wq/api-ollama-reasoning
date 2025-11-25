@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {%block link%}
 <link rel="stylesheet" href="{{url_for('static', filename='css/response.css')}}">
+<script src="{{url_for('static', filename='js/main.js')}}"></script>
 {%endblock%}
 
 {% block content %}
@@ -8,46 +9,11 @@
 <leftside class="response-content data-markdown" id="responseContent">
     {% if response %}
         {{response|safe}}
-    {% else %}
-        <script>
-            let params = new URLSearchParams(window.location.search);
-            function fetchResponse() {
-                fetch('/process'+'?' + params.toString())
-                    .then(response => response.json())
-                    .then(data => {
-                        const responseContent = document.getElementById('responseContent');
-                        responseContent.innerHTML = data.response;
-                        window.renderMarkdown(responseContent);
-                    })
-                    .catch(error => console.error('Error fetching response:', error));
-            }
-            fetchResponse();
-        </script>
     {% endif %}
 </leftside>
 <rightside class="article-content data-markdown" id="articleContent">
     {% if article %}
         {{article|safe}}
-    {% elif not article and %}
-        <script>
-            let new_params = new URLSearchParams(window.location.search);
-
-            function fetchResponse() {
-                if (new_params == params){
-                    return;
-                }
-
-                fetch('/process'+'?' + params.toString())
-                    .then(response => response.json())
-                    .then(data => {
-                        const responseContent = document.getElementById('responseContent');
-                        responseContent.innerHTML = data.response;
-                        window.renderMarkdown(responseContent);
-                    })
-                    .catch(error => console.error('Error fetching response:', error));
-            }
-            fetchResponse();
-        </script>
     {% endif %}
 </rightside>
 {% endblock %}

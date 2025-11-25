@@ -27,17 +27,16 @@ class Upload(Document):
     creator = ReferenceField(User)
     id = IntField(primary_key=True)
     filename = StringField(required=True)
-    depth=IntField(required=True)
     file = FileField(required=True)
     meta = {'collection': 'uploads'}
 
 
-def upload_file(user:User, log_dir:str, filename:str, raw_file, depth:int):
+def upload_file(user:User, log_dir:str, filename:str, raw_file):
     try:
         existing = Upload.objects.get(filename=path.join(log_dir, filename), creator=user)
 
     except Exception as err:
-        new_upload_doc = Upload(id=Upload.objects.count()+1, creator=user, depth=depth)
+        new_upload_doc = Upload(id=Upload.objects.count()+1, creator=user)
         new_upload_doc.filename = path.join(log_dir, filename)
         new_upload_doc.file.put(raw_file, content_type="text/markdown")
         new_upload_doc.save()
@@ -46,6 +45,5 @@ def upload_file(user:User, log_dir:str, filename:str, raw_file, depth:int):
         print("Updating existing file...")
         content = existing.file.read()
         existing.file.delete()
-        existing.depth = depth
         existing.file.put(content + raw_file, content_type="text/markdown")
         existing.save()
