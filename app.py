@@ -55,11 +55,11 @@ def store_article(process_url:str, username:str):
         response = requests.get(process_url, stream=True)
     
     article_content = ""
-    for chunk in response.iter_content(chunk_size=1024):
+    for chunk in response.iter_content(chunk_size=2048):
         if chunk:
             article_content += chunk.decode('utf-8')
             with app.app_context():
-                turbo.push(turbo.replace(render_template('_article_fragment.html', article=article_content), 'responseArticle'))
+                turbo.push(turbo.update(render_template('_article_fragment.html', article=read_markdown_to_html(article_content)), 'articleContent'))
 
 def store_response(process_url:str, username:str, log_dir:str):
     user = User.objects(username=username).first()
@@ -70,13 +70,13 @@ def store_response(process_url:str, username:str, log_dir:str):
     response = None
     with app.app_context():
         response = requests.get(process_url, stream=True)
-    
+
     response_content = ""
-    for chunk in response.iter_content(chunk_size=1024):
+    for chunk in response.iter_content(chunk_size=2048):
         if chunk:
             response_content += chunk.decode('utf-8')
             with app.app_context():
-                turbo.push(turbo.replace(render_template('_response_fragment.html', response=response_content), 'responseContent'))
+                turbo.push(turbo.update(render_template('_response_fragment.html', content=read_markdown_to_html(response_content)), 'responseContent'))
 
 @app.route("/", methods=["GET", "POST"])
 @check_if_logged_in
@@ -176,6 +176,32 @@ def view_logs(username:str, log_dir:str):
 @app.route("/<username>/<log_dir>/write_logs")
 @check_if_logged_in
 def write(username:str, log_dir:str):
+    query = request.args.get('query')
+    model = request.args.get('model')
+    max_width = request.args.get('max_width')
+    max_depth = request.args.get('max_depth')
+    n_tokens = request.args.get('n_tokens')
+    api_key = request.args.get('api_key')
+    prompt = request.args.get('prompt')
+
+    store_response_url = url_for(
+        'bp_processing_api.process',
+        log_dir=log_dir,
+        username=username,
+        query=query,
+        model=model,
+        max_width=max_width,
+        max_depth=max_depth,
+        n_tokens=n_tokens,
+        api_key=api_key,
+        prompt=prompt,
+        _external=True
+    )
+    t = threading.Thread(target=store_response, args=(store_response_url, username, log_dir))
+    # append thread in a thread-safe way so ThreadManager can pick it up
+    with manager.lock:
+        manager.threads.append(t)
+
     return render_template('response.html')
 
 @app.route("/<username>/<log_dir>/write_article")
@@ -209,7 +235,6 @@ def submit_question():
             log_dir=form.log_dir.data or 'default_log',
             filename='context.md',
             raw_file=f"Initial context: {form.context.data}".encode('utf-8'),
-            depth=0
         )
 
         upload_file(
@@ -217,7 +242,6 @@ def submit_question():
             log_dir=form.log_dir.data or 'default_log',
             filename='response.md',
             raw_file="".encode('utf-8'),
-            depth=0
         )
 
         upload_file(
@@ -225,20 +249,10 @@ def submit_question():
             log_dir=form.log_dir.data or 'default_log',
             filename='article.md',
             raw_file="".encode('utf-8'),
-            depth=0
         )
 
         return redirect(url_for('write', query=form.query.data, prompt=None, username=session.get('username'), log_dir=form.log_dir.data or 'default_log', model=form.model_name.data or "deepseek-v3.1:671b-cloud", max_width=form.max_width.data, max_depth=form.max_depth.data, n_tokens=form.n_tokens.data if form.n_tokens.data is not None else 100000, api_key=form.api_key.data))
     return render_template('form.html', form=form)
-
-
-@app.route('/static/js/main.js')
-def serve_js():
-    return send_file('static/js/main.js', mimetype='application/javascript')
-
-@app.route('/static/js/sw.js')
-def serve_sw():
-    return send_file('static/js/sw.js', mimetype='application/javascript')
 
 if __name__ == '__main__':
     # Enable threading so worker threads can make HTTP requests back to this server

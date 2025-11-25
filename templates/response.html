@@ -1,17 +1,16 @@
 {% extends 'base.html' %}
 {%block link%}
 <link rel="stylesheet" href="{{url_for('static', filename='css/response.css')}}">
-<script src="{{url_for('static', filename='js/main.js')}}"></script>
 {%endblock%}
 
 {% block content %}
-<h3>If you close the page, you lose the content generation!!!</h3>
-<leftside class="response-content data-markdown" id="responseContent">
+<h3>Log and article creation</h3>
+<leftside class="response-content data-markdown">
     {% if response %}
         {{response|safe}}
     {% endif %}
 </leftside>
-<rightside class="article-content data-markdown" id="articleContent">
+<rightside class="article-content data-markdown">
     {% if article %}
         {{article|safe}}
     {% endif %}

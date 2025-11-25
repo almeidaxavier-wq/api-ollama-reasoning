@@ -26,6 +26,7 @@ class User(Document):
 class Upload(Document):
     creator = ReferenceField(User)
     id = IntField(primary_key=True)
+    depth=IntField(default=0)
     filename = StringField(required=True)
     file = FileField(required=True)
     meta = {'collection': 'uploads'}
@@ -43,7 +44,7 @@ def upload_file(user:User, log_dir:str, filename:str, raw_file):
 
     else:
         print("Updating existing file...")
-        content = existing.file.read()
+        content = existing.file.read() if existing and existing.file.read() else b" "
         existing.file.delete()
         existing.file.put(content + raw_file, content_type="text/markdown")
         existing.save()

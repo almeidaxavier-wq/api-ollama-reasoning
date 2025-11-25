@@ -18,8 +18,6 @@ def process():
     api_key = request.args.get('api_key')
     prompt = request.args.get('prompt')
 
-    obj_context = Upload.objects(filename__contains=os.path.join(log_dir, 'context.md')).first()
-
     if not query:
         return redirect(url_for('home'))
 
@@ -35,24 +33,14 @@ def process():
     thinker.api_key = api_key
     thinker.max_depth = int(max_depth) if max_depth is not None else thinker.max_depth
     thinker.n_tokens_default = int(n_tokens) if n_tokens is not None else thinker.n_tokens_default
-    print(thinker.max_depth, obj_context.depth)
-    
-    if prompt == 'None':
-        obj_context.file.delete()
-        obj_context.depth == 0
 
     result = thinker.reasoning_step(
         username=session.get('username'),
         log_dir=log_dir,
         query=query,
-        init=obj_context.depth == 0,
+        init=False,
         prompt=None if prompt == 'None' else prompt
     )
-
-    obj_context.file.delete()
-    obj_context.file.put(thinker.context.encode('utf-8'), content_type="text/markdown")
-    obj_context.depth += 1
-    obj_context.save()
 
     # set headers to reduce buffering by proxies and clients
     headers = {

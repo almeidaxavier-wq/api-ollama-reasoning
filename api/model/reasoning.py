@@ -56,16 +56,16 @@ class Reasoning:
     def reasoning_step(self, username:str, log_dir:str, query:str, init=True, prompt=None):
         #print(depth)
         obj_file = Upload.objects(filename__contains=os.path.join(log_dir, 'context.md'), creator=User.objects(username=username).first()).first()
-        if not obj_file or not obj_file.file.read():
+        if not obj_file:
             raise ValueError("No context file found for reasoning step.")
         
         obj_response = Upload.objects(filename__contains=os.path.join(log_dir, 'response.md'), creator=User.objects(username=username).first()).first()
-        if not obj_response or not obj_response.file.read():
+        if not obj_response:
             raise ValueError("No response file found for reasoning step.")
         
         def iterate():
-            context = obj_file.file.read().decode('utf-8') if obj_file and obj_file.file.read() else ""
-            response = ""
+            context = obj_file.file.read().decode('utf-8') if obj_file and obj_file.file.read() else " "
+            response = " "
             for i in range(self.max_depth):
                 current_prompt = generate_prompt(self.max_width) if init or i == 0 else continue_prompt(self.max_width)
                 r = make_request_ollama_reasoning(api_key=self.api_key, model_name=self.model, prompt=current_prompt, context=self.context, n_tokens=self.n_tokens_default)
@@ -75,29 +75,29 @@ class Reasoning:
                         content = chunk['message'].get('content', '')
                         # accumulate into context while streaming
                         context += content
-                        reponse += content
-
-                        upload_file(
-                            user=User.objects(username=username).first(),
-                            log_dir=log_dir,
-                            filename='response.md',
-                            raw_file=response.encode('utf-8')
-                        )
-
-                        upload_file(
-                            user=User.objects(username=username).first(),
-                            log_dir=log_dir,
-                            filename='context.md',
-                            raw_file=context.encode('utf-8')
-                        )
+                        response += content
 
                         yield content
+
+                upload_file(
+                    user=User.objects(username=username).first(),
+                    log_dir=log_dir,
+                    filename='response.md',
+                    raw_file=(response+" ").encode('utf-8')
+                )
+
+                upload_file(
+                    user=User.objects(username=username).first(),
+                    log_dir=log_dir,
+                    filename='context.md',
+                    raw_file=(context+" ").encode('utf-8')
+                )
 
         return iterate()
 
     def write_article(self, username:str, log_dir:str, iterations:int):
         def iterate():
-            prev_generated = ""
+            prev_generated = " "
             for i in range(iterations):                
                 prompt = article_prompt(iterations) if i == 0 else article_prompt_continue(i+1)
                 prev_generated += "\n\n" + prompt + "\n\n"
@@ -108,13 +108,14 @@ class Reasoning:
                         content = chunk['message'].get('content', '')
                         # accumulate into context while streaming
                         prev_generated += content
-                        upload_file(
-                            user=User.objects(username=username).first(),
-                            log_dir=log_dir,
-                            filename='article.md',
-                            raw_file=prev_generated.encode('utf-8')
-                        )
 
                     yield content
+
+                upload_file(
+                    user=User.objects(username=username).first(),
+                    log_dir=log_dir,
+                    filename='article.md',
+                    raw_file=prev_generated.encode('utf-8')
+                )
 
         return iterate()
