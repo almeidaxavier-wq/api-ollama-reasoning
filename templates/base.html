@@ -5,12 +5,95 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ollama API Augmented</title>
     <link rel="stylesheet" href="{{url_for('static', filename='css/main.css')}}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex.min.css" integrity="sha384-WcoG4HRXMzYzfCgiyfrySxx90XSl2rxY5mnVY5TwtWE6KLrArNKn0T/mOgNL0Mmi" crossorigin="anonymous">
+
+    <!-- KaTeX and auto-render (deferred). We avoid inline onload and call render explicitly
+         after the scripts have loaded to allow robust mutation handling for dynamic content. -->
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex.min.js" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
     {% block link %}
     {% endblock %}
     {{turbo()}}
 </head>
 <body>
+    <script>
+        (function () {
+            // Options for KaTeX auto-render
+            const katexOptions = {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '\\[', right: '\\]', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError: false
+            };
+
+            function tryRender(root) {
+                if (typeof renderMathInElement !== 'function') return;
+                try {
+                    renderMathInElement(root || document.body, katexOptions);
+                } catch (e) {
+                    // avoid breaking the page if KaTeX fails
+                    console.error('KaTeX render error', e);
+                }
+            }
+
+            // Run after DOMContentLoaded and after deferred scripts are likely executed.
+            function onReady() {
+                // initial render
+                tryRender(document.body);
+
+                // observe mutations to re-render math for dynamic content (Turbo, AJAX)
+                const observer = new MutationObserver(mutations => {
+                    for (const m of mutations) {
+                        if (m.addedNodes && m.addedNodes.length) {
+                            m.addedNodes.forEach(node => {
+                                if (node.nodeType === Node.ELEMENT_NODE) {
+                                    tryRender(node);
+                                    // auto-scroll behavior: if response/article containers updated, scroll to bottom
+                                    try {
+                                        const resp = document.getElementById('responseContent');
+                                        const art = document.getElementById('articleContent');
+                                        const containsResp = node.id === 'responseContent' || (node.querySelector && node.querySelector('#responseContent'));
+                                        const containsArt = node.id === 'articleContent' || (node.querySelector && node.querySelector('#articleContent'));
+
+                                        if (containsResp && resp) {
+                                            // scroll the container if it's scrollable, otherwise the window
+                                            if (resp.scrollHeight > resp.clientHeight) {
+                                                resp.scrollTo({ top: resp.scrollHeight, behavior: 'smooth' });
+                                            } else {
+                                                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                                            }
+                                        }
+
+                                        if (containsArt && art) {
+                                            if (art.scrollHeight > art.clientHeight) {
+                                                art.scrollTo({ top: art.scrollHeight, behavior: 'smooth' });
+                                            } else {
+                                                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                                            }
+                                        }
+                                    } catch (e) {
+                                        console.error('Auto-scroll failed', e);
+                                    }
+                                }
+                            });
+                        }
+                    }
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', onReady);
+            } else {
+                onReady();
+            }
+        })();
+    </script>
     {% block content %}
     {% endblock %}
+    
 </body>
 </html>

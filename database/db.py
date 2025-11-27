@@ -32,19 +32,23 @@ class Upload(Document):
     meta = {'collection': 'uploads'}
 
 
-def upload_file(user:User, log_dir:str, filename:str, raw_file):
+def upload_file(user:User, log_dir:str, filename:str, raw_file, initial:bool=False):
     try:
-        existing = Upload.objects.get(filename=path.join(log_dir, filename), creator=user)
+        existing = Upload.objects(filename=path.join(log_dir, filename), creator=user).first()
 
     except Exception as err:
+        print(f"File does not exist, creating new upload: {err}")
         new_upload_doc = Upload(id=Upload.objects.count()+1, creator=user)
         new_upload_doc.filename = path.join(log_dir, filename)
         new_upload_doc.file.put(raw_file, content_type="text/markdown")
         new_upload_doc.save()
 
     else:
-        print("Updating existing file...")
-        content = existing.file.read() if existing and existing.file.read() else b" "
-        existing.file.delete()
-        existing.file.put(content + raw_file, content_type="text/markdown")
+        content = b" "
+        if not initial:
+            print("Updating existing file...")
+            content = existing.file.read() if existing and existing.file.read() else b" "
+            existing.file.delete()
+        
+        existing.file.replace(content + raw_file, content_type="text/markdown")
         existing.save()

@@ -2,14 +2,16 @@ from api.model.api_main import make_request_ollama_reasoning
 from database.db import Upload, User, upload_file
 import os
 
-generate_prompt = lambda width: f"""
+generate_prompt = lambda width, prompt: f"""
 THINK LOUDLY!
 1. Break the problem into {width} step alternatives to adress it
 2. Choose one alternative
 3. DO NOT USE CONJECTURES. Only use well known theorems, lemmas and mathematical concepts. 
 
+PROBLEM: {prompt}
+
 Do not write an answer yet, only propose the alternatives.
-Display math in KATEX form
+Use $$ for block math and $ for inline math.
 """
 
 continue_prompt = lambda width: f"""
@@ -18,7 +20,7 @@ proposing {width} new ones from the result of the approach.
 
 Remember: don't use any conjecture, only theorems, lemmas and other mathematical concepts well known.
 If any solution encountered, return SOLVED, else *only return PROGRESS*
-*Display math in KATEX form*
+*Display math in $$ for block equations and $ for inline*
 """
 
 article_prompt = lambda iterations: f"""
@@ -53,8 +55,9 @@ class Reasoning:
         self.api_key = api_key
         self.context = ""
 
-    def reasoning_step(self, username:str, log_dir:str, query:str, init=True, prompt=None):
+    def reasoning_step(self, username:str, log_dir:str, query:str, init=False, prompt=None):
         #print(depth)
+        print(os.path.join(log_dir, 'context.md'), username)
         obj_file = Upload.objects(filename__contains=os.path.join(log_dir, 'context.md'), creator=User.objects(username=username).first()).first()
         if not obj_file:
             raise ValueError("No context file found for reasoning step.")
@@ -63,13 +66,16 @@ class Reasoning:
         if not obj_response:
             raise ValueError("No response file found for reasoning step.")
         
+        obj_file.file.delete()
         def iterate():
-            context = obj_file.file.read().decode('utf-8') if obj_file and obj_file.file.read() else " "
+            context = " "
             response = " "
             for i in range(self.max_depth):
-                current_prompt = generate_prompt(self.max_width) if init or i == 0 else continue_prompt(self.max_width)
-                r = make_request_ollama_reasoning(api_key=self.api_key, model_name=self.model, prompt=current_prompt, context=self.context, n_tokens=self.n_tokens_default)
+                current_prompt = generate_prompt(self.max_width, query) if init or i == 0 else continue_prompt(self.max_width)
+                r = make_request_ollama_reasoning(api_key=self.api_key, model_name=self.model, prompt=current_prompt, context=context, n_tokens=self.n_tokens_default)
                 
+                context += "\n\n" + current_prompt + "\n\n"
+
                 for chunk in r:
                     if 'message' in chunk:
                         content = chunk['message'].get('content', '')
@@ -78,19 +84,21 @@ class Reasoning:
                         response += content
 
                         yield content
+                
+
 
                 upload_file(
                     user=User.objects(username=username).first(),
                     log_dir=log_dir,
                     filename='response.md',
-                    raw_file=(response+" ").encode('utf-8')
+                    raw_file=(response+"\n").encode('utf-8')
                 )
 
                 upload_file(
                     user=User.objects(username=username).first(),
                     log_dir=log_dir,
                     filename='context.md',
-                    raw_file=(context+" ").encode('utf-8')
+                    raw_file=(context+"\n").encode('utf-8')
                 )
 
         return iterate()

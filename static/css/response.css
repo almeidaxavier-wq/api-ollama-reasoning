@@ -3,7 +3,17 @@
     padding: 20px;
     box-sizing: border-box;
     border-right: 1px solid #ccc;
-    overflow-y:auto;
-    height: 100vh;
+    height: 100%;
+    scroll-snap-type: y mandatory;
+
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    overflow-y: auto;
+    overflow-anchor:none;
+    scroll-snap-type: y mandatory;
+    scroll-snap-align:end;
 
 }
