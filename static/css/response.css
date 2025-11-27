@@ -1,19 +1,38 @@
+:root{
+    --panel-height: 70vh;
+}
+
 .response-content, .article-content {
     width: 50%;
     padding: 20px;
     box-sizing: border-box;
     border-right: 1px solid #ccc;
-    height: 100%;
-    scroll-snap-type: y mandatory;
-
+    /* make these panels independently scrollable */
+    height: var(--panel-height);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .container {
     max-width: 800px;
     margin: 0 auto;
-    overflow-y: auto;
-    overflow-anchor:none;
-    scroll-snap-type: y mandatory;
-    scroll-snap-align:end;
+    /* inner content should flow normally; scrolling is handled by the panel */
+    overflow: visible;
+    overflow-anchor: none;
+}
 
+/* layout helper: place response and article side-by-side */
+leftside, rightside {
+    display: inline-block;
+    vertical-align: top;
+}
+
+@media (max-width: 900px) {
+    .response-content, .article-content {
+        width: 100%;
+        height: 60vh;
+        border-right: none;
+        border-bottom: 1px solid #ccc;
+    }
+    leftside, rightside { display: block; }
 }
